@@ -12,13 +12,80 @@
 
 ## Installation
 
-prenv and its tools are available as Docker images on Docker Hub and GitHub Container Registry. Also, there is a Helm chart for installing prenv and its tools to your Kubernetes cluster. [`prenv-init`](#prenv-init) internally uses the chart to install the tools.
+Run `prenv init` to deploy all the prerequisites onto your Kubernetes cluster.
+
+```sh
+curl https://mumoshu.github.io/prenv/init | bash
+
+# Or grab the prenv binary from the latest release
+# and run:
+prenv init
+```
+
+`prenv` and its tools are available as Docker images on Docker Hub and GitHub Container Registry.
+
+There is also a Helm chart for installing prenv and its tools to your Kubernetes cluster. [`prenv-init`](#prenv-init) internally uses the chart to install the tools.
 
 ## Configuration
 
 `prenv.yaml` in the root of your repository is the configuration file for prenv. It describes how a Per-Pull Request Environment is created.
 
 ```yaml
+## The following sqs section is asummed by default
+## when you specify just `sqs: {}`
+sqs:
+  queueNameTemplate: "prenv-{{ .PullRequestNumber }}"
+  ## The following attributes are optional, and specified
+  ## only when you want to create the queue via Terraform.
+  #create: false
+
+## We currently assume the outgoing webhook is always deployed
+## to the same namespace as the argocd application.
+## So no additional configuration is required.
+#outgoingWebhook: {}
+
+## envvars controls the names of the environment variables
+## that are passed to the application for the Per-Pull Request
+## Environment.
+envvars:
+  sqsQueueURL:
+    name: "MY_CUSTOM_SQS_QUEUE_URL_ENV_VAR_NAME"
+  outgoingWebhookURL:
+    name: "MY_CUSTOM_OUTGOING_WEBHOOK_URL_ENV_VAR_NAME"
+
+## The following argocd section is asummed by default
+## when you specify just `argocd: {}`
+argocd:
+  appTemplate: |
+    metadata:
+      name: "prenv-{{ .PullRequestNumber }}"
+      namespace: "prenv"
+    spec:
+      source:
+        # .GitHubRepositoryURL corresponds to the $GITHUB_REPOSITORY
+        # environment variable
+        repoURL: "{{ .GitHubRepositoryURL }}"
+        # .SHA corresponds to the $GITHUB_SHA environment variable
+        # available on GitHub Actions.
+        targetRevision: "{{ .SHA }}"
+        path: "deploy/argocd"
+      destination:
+        namespace: "prenv-{{ .PullRequestNumber }}"
+        server: "https://kubernetes.default.svc"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+      ## The queue URL is passed to the application via the
+      ## environment variable `SQS_QUEUE_URL`.
+      env:
+      # The env name is configurable via the `envvars.sqsQueueURL` field.
+      - name: "SQS_QUEUE_URL"
+        value: "{{ .SQSQueueURL }}"
+      # The env name is configurable via the `envvars.outgoingWebhookURL` field.
+        - name: "OUTGOING_WEBHOOK_URL"
+          value: "{{ .OutgoingWebhookURL }}"
+
 terraform:
   module: "myinfra"
   vars:
@@ -26,14 +93,29 @@ terraform:
       value: "bar"
     - name: "baz"
       valueTemplate: "prenv-{{ .PullRequestNumber }}"
+    ## In case you want to deploy the app using Terraform AND
+    ## the queue is created by prenv-init, you need to pass the
+    ## queue name to the Terraform module.
+    #- name: "queue_name"
+    #  valueTemplate: "prenv-{{ .PullRequestNumber }}"
 ```
 
 ## Commands
 
+Run locally or on GitHub Actions:
+
 - [prenv-init](#prenv-init) sets up the prerequisites for creating and managing Per-Pull Request Environments.
 - [prenv-deinit](#prenv-deinit) deletes the prerequisites for creating and managing Per-Pull Request Environments.
+
+Run on GitHub Actions Pull Request event:
+
 - [prenv-apply](#prenv-apply) creates a Per-Pull Request Environment.
 - [prenv-destroy](#prenv-destroy) deletes a Per-Pull Request Environment.
+
+Run on cluster:
+
+- [prenv-sqs-forwarder](#prenv-sqs-forwarder) forwards messages from an SQS queue to the downstream, Per-Pull Request Environments' SQS queues.
+- [prenv-outgoing-webhook](#prenv-outgoing-webhook) receives outgoing webhooks from the Per-Pull Request Environments and forwards them to the Slack channel of your choice.
 
 ### prenv-init
 
@@ -64,14 +146,55 @@ Once the Per-Pull Request Environment is deleted, `prenv-destroy` deletes the `p
 - It does nothing when there is no `prenv-${PR_NUMBER}` configmap in the namespace of your Kubernetes cluster.
 - In case it failed after terraform-destroy and before deleting the configmap, you can run `prenv-destroy` again to delete the configmap.
 
-## prenv-sqs-forwrder
+### prenv-sqs-forwrder
 
 **usage(note that you can specify multiple downstream queues)**: `prenv-sqs-forwarder -region <region> -queue <queue> -downstream-queue <downstream-queue> -downstream-queue <downstream-queue>`
 
-## prennv-outgoing-webhook
+### prennv-outgoing-webhook
 
 By specifying the base host name, the subdomain will be treated as the environment name to be included in the notification.
 
 It does also read the `X-Prenv-Environment` header and `Host` header to determine the environment name.
 
 **usage**: `prenv-outgoing-webhook -slack-webhook-url <slack-webhook-url> -base-host <base-host>`
+
+## Implementation
+
+`prenv` is basically a wrapper around various tools that are often used to create and manage Per-Pull Request Environments. The tools are:
+
+- Terraform (and its `terraform` CLI tool)
+- ArgoCD (and its `argocd` CLI tool)
+
+Depending on the task, `prenv` might run the CLI tools, or call the REST APIs (if any), use a language-specific SDK (if any), or use a Kubernetes client library (if applicable).
+
+Our choice of the programming language for `prenv` is xx(decide and put the language name here), because:
+
+- It is a compiled language, so we can distribute the binary without requiring the users to install the language runtime.
+- It has a rich ecosystem of libraries for interacting with various tools and services.
+- It is a statically typed language, so we can catch many errors at compile time.
+
+Specifically, we use the following libraries:
+
+- xx(decide and put the library name here) for interacting with Terraform
+- xx(decide and put the library name here) for interacting with ArgoCD
+- xx(decide and put the library name here) for interacting with Kubernetes
+
+Here's the list of related libraries and tools that we considered but didn't choose:
+
+- https://github.com/aws/aws-sdk-go
+- [argo-cd-apiclient](https://github.com/argoproj/argo-cd/tree/master/pkg/apiclient)
+  - Huge transitive deps https://argo-cd.readthedocs.io/en/stable/user-guide/import/
+- https://github.com/hashicorp/terraform-exec
+- https://github.com/gruntwork-io/terratest
+  - too much for our use-case
+- https://github.com/beelit94/python-terraform
+  - no longer maintained?
+- python tftest: https://pypi.org/project/tftest/
+- https://github.com/boto/boto3
+- https://github.com/kubernetes-client/python
+- https://github.com/onlinejudge95/argocd
+  - no longer maintained?
+
+## License
+
+MIT License
