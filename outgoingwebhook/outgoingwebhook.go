@@ -1,6 +1,7 @@
 package outgoingwebhook
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,12 +13,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// OutgoingWebhook is a webhook server that sends a Slack message to a channel
+// Server is a webhook server that sends a Slack message to a channel
 // when the webhook is triggered.
 //
 // The webhook expects a POST request with any form values.
 // Each form value becomes a Slack attachment field.
-type OutgoingWebhook struct {
+type Server struct {
 	// The URL of the Slack webhook.
 	WebhookURL string `json:"webhook_url"`
 	// The channel to send the message to.
@@ -26,8 +27,8 @@ type OutgoingWebhook struct {
 	Username string `json:"username"`
 }
 
-func NewOutgoingWebhook(webhookURL, channel, username string) *OutgoingWebhook {
-	return &OutgoingWebhook{
+func NewOutgoingWebhook(webhookURL, channel, username string) *Server {
+	return &Server{
 		WebhookURL: webhookURL,
 		Channel:    channel,
 		Username:   username,
@@ -48,7 +49,7 @@ func NewOutgoingWebhook(webhookURL, channel, username string) *OutgoingWebhook {
 //
 // If the webhook URL is empty and the environment variable SLACK_WEBHOOK_URL is set,
 // the webhook URL is set to the value of the environment variable.
-func (o *OutgoingWebhook) Run() error {
+func (o *Server) Run(ctx context.Context) error {
 	if err := o.Validate(); err != nil {
 		return errors.Wrap(err, "invalid configuration")
 	}
@@ -62,16 +63,29 @@ func (o *OutgoingWebhook) Run() error {
 	}
 
 	logrus.WithField("address", o.Address()).Info("starting outgoing webhook server")
-	return http.ListenAndServe(o.Address(), o)
+	srv := http.Server{
+		Addr:    o.Address(),
+		Handler: o,
+	}
+
+	go func() {
+		<-ctx.Done()
+		logrus.Info("stopping outgoing webhook server")
+		if err := srv.Shutdown(ctx); err != nil {
+			logrus.WithError(err).Error("failed to stop outgoing webhook server")
+		}
+	}()
+
+	return srv.ListenAndServe()
 }
 
 // Address returns the address the webhook server is listening on.
-func (o *OutgoingWebhook) Address() string {
+func (o *Server) Address() string {
 	return ":8080"
 }
 
 // ServeHTTP implements http.Handler.
-func (o *OutgoingWebhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (o *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -86,7 +100,7 @@ func (o *OutgoingWebhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (o *OutgoingWebhook) handleRequest(w http.ResponseWriter, r *http.Request) error {
+func (o *Server) handleRequest(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return errors.Wrap(err, "failed to parse form")
 	}
@@ -133,11 +147,11 @@ func (o *OutgoingWebhook) handleRequest(w http.ResponseWriter, r *http.Request) 
 	return nil
 }
 
-func (o *OutgoingWebhook) String() string {
+func (o *Server) String() string {
 	return fmt.Sprintf("OutgoingWebhook{WebhookURL: %s, Channel: %s, Username: %s}", o.WebhookURL, o.Channel, o.Username)
 }
 
-func (o *OutgoingWebhook) Validate() error {
+func (o *Server) Validate() error {
 	if o.WebhookURL == "" {
 		return errors.New("webhook_url is required")
 	}

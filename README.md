@@ -127,6 +127,8 @@ Run on cluster:
 
 ### prenv-apply
 
+`prenv-apply` deploys your application to the Per-Pull Request Environment.
+
 `prenv-apply` reads the `GITHUB_REF` enviroment variable to extract the pull request number, and creates the Per-Pull Request Environment.
 
 To create the Per-Pull Request Environment, `prenv-apply` finds the `prenv.yaml` file in the root of your repository and runs Terraform to create the environment.
@@ -136,6 +138,8 @@ As a marker, `prenv-apply` creates a `prenv-${PR_NUMBER}` configmap in the names
 `prenv-apply` run is idempotent. It does nothing when there is already a `prenv-${PR_NUMBER}` configmap in the namespace of your Kubernetes cluster.
 
 ### prenv-destroy
+
+`prenv-apply` undeploys your application from the Per-Pull Request Environment.
 
 `prenv-destroy` reads the `GITHUB_REF` enviroment variable to extract the pull request number, and deletes the Per-Pull Request Environment associated with the pull request.
 
