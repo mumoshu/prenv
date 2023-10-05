@@ -1,0 +1,19 @@
+awsResources:
+  sourceQueueCreate: true
+  destinationQueueCreate: true
+  sourceQueueURL: testsourcequeue
+  destinationQueueURL: testdestinationqueue
+
+kubernetesResources:
+  sqsForwarder:
+    maxNumberOfMessages: 10
+    waitTimeSeconds: 20
+    sleepSeconds: 10
+    receiveMessageFailureSleepSeconds: 10
+    sendMessageFailureSleepSeconds: 10
+    deleteMessageFailureSleepSeconds: 10
+    visibilityTimeout: 60
+  outgoingWebhook:
+    webhookURL: https://example.com
+    channel: "playground"
+    username: "prenv"

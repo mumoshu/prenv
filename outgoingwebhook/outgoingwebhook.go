@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mumoshu/prenv/k8sdeploy"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -20,11 +21,34 @@ import (
 // Each form value becomes a Slack attachment field.
 type Server struct {
 	// The URL of the Slack webhook.
-	WebhookURL string `json:"webhook_url"`
+	WebhookURL string `json:"webhookURL"`
 	// The channel to send the message to.
 	Channel string `json:"channel"`
 	// The username to send the message as.
 	Username string `json:"username"`
+}
+
+const (
+	FlagWebhookURL = "webhook-url"
+	FlagChannel    = "channel"
+	FlagUsername   = "username"
+)
+
+func (s *Server) BuildDeployConfig(defaults k8sdeploy.Config) (*k8sdeploy.Config, error) {
+	if err := s.Validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid configuration")
+	}
+
+	c := defaults.Clone()
+	c.Name = "outgoing-webhook"
+	c.Command = "prenv"
+	c.Args = []string{
+		"outgoing-webhook",
+		"--" + FlagWebhookURL, s.WebhookURL,
+		"--" + FlagChannel, s.Channel,
+		"--" + FlagUsername, s.Username,
+	}
+	return &c, nil
 }
 
 func NewOutgoingWebhook(webhookURL, channel, username string) *Server {

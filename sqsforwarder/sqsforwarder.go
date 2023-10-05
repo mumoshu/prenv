@@ -6,8 +6,9 @@ import (
 	"time"
 
 	_ "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/mumoshu/prenv/awsclicompat"
+	"github.com/mumoshu/prenv/k8sdeploy"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -48,15 +49,34 @@ type Forwarder struct {
 	LogLevel string `yaml:"logLevel"`
 }
 
+const (
+	FlagSourceQueueURL       = "source-queue-url"
+	FlagDestinationQueueURLs = "destination-queue-urls"
+)
+
+func (f *Forwarder) BuildDeployConfig(defaults k8sdeploy.Config) (*k8sdeploy.Config, error) {
+	if err := f.Validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid configuration")
+	}
+
+	c := defaults.Clone()
+	c.Name = "sqs-forwarder"
+	c.Command = "prenv"
+	c.Args = []string{
+		"sqs-forwarder",
+		"--" + FlagSourceQueueURL, f.SourceQueueURL,
+		"--" + FlagDestinationQueueURLs, strings.Join(f.DestinationQueueURLs, ","),
+	}
+	return &c, nil
+}
+
 // Run runs a daemon that forwards messages from an SQS queue to the downstream, Per-Pull Request Environments' SQS queues.
 // This is a blocking call.
 // The daemon stops when the context is canceled.
 //
 // The daemon returns an error if the configuration is invalid or if the daemon fails to start.
 func (f *Forwarder) Run(ctx context.Context) error {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
+	sess := awsclicompat.NewSession(f.AWSRegion, f.AWSProfile, "")
 
 	log := logrus.New()
 	log.SetFormatter(&logrus.JSONFormatter{})
