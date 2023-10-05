@@ -35,8 +35,9 @@ There is also a Helm chart for installing prenv and its tools to your Kubernetes
 ## when you specify just `sqs: {}`
 sqs:
   queueNameTemplate: "prenv-{{ .PullRequestNumber }}"
-  ## The following attributes are optional, and specified
-  ## only when you want to create the queue via Terraform.
+  ## The following attributes are optional.
+  ## It must set to `true` if you want prenv to create SQS queues.
+  ## Set of `false` when you want to create the queues using e.g. Terraform.
   #create: false
 
 ## We currently assume the outgoing webhook is always deployed
