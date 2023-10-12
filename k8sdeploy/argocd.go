@@ -63,7 +63,7 @@ func (a *ArgoCDApp) Validate() error {
 	}
 
 	if a.GitHubSHA == "" {
-		return fmt.Errorf("githubSHA is required")
+		return fmt.Errorf("githubSHA is required. Set GITHUB_SHA env var")
 	}
 
 	if a.PullRequestNumber == 0 {
@@ -82,7 +82,12 @@ func (a *ArgoCDApp) GenerateManifests() ([]file, error) {
 		return nil, err
 	}
 
-	name := fmt.Sprintf("%s-%d", a.ArgoCDApp.Name, a.PullRequestNumber)
+	appName := a.ArgoCDApp.Name
+	if appName == "" {
+		return nil, fmt.Errorf("argocdApp.name is required")
+	}
+
+	name := fmt.Sprintf("%s-%d", appName, a.PullRequestNumber)
 
 	return generateManifests(name, TemplateArgoCDApp, a)
 }

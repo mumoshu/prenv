@@ -67,7 +67,7 @@ type Store struct {
 // - The state was unable to be created.
 // - The state was unable to be updated.
 func (s *Store) AddEnvironmentName(ctx context.Context, name string) error {
-	_, err := s.getOrCreateState(ctx, name)
+	_, err := s.upsertStateConfigMap(ctx, name)
 	return err
 }
 
@@ -109,7 +109,11 @@ func (s *Store) GetNamespace() string {
 	return s.Namespace
 }
 
-func (s *Store) getOrCreateState(ctx context.Context, envName string) (*State, error) {
+// upsertStateConfigMap upserts the state ConfigMap.
+// It creates a new ConfigMap if it does not exist.
+// If it exists, it reads the state from the ConfigMap, adds the environment name to the state,
+// and writes the state back to the ConfigMap.
+func (s *Store) upsertStateConfigMap(ctx context.Context, envName string) (*State, error) {
 	c, err := s.getClient()
 	if err != nil {
 		return nil, err
@@ -139,7 +143,7 @@ func (s *Store) getOrCreateState(ctx context.Context, envName string) (*State, e
 				},
 			}, metav1.CreateOptions{})
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("unable to create configmap: %w", err)
 			}
 		} else {
 			return nil, err
@@ -207,7 +211,7 @@ func (s *Store) modifyState(ctx context.Context, cm *v1.ConfigMap, modify func(*
 		return nil, err
 	}
 
-	cm.Data[s.Key] = string(data)
+	cm.Data[s.getKey()] = string(data)
 
 	c, err := s.getClient()
 	if err != nil {
@@ -216,7 +220,7 @@ func (s *Store) modifyState(ctx context.Context, cm *v1.ConfigMap, modify func(*
 
 	_, err = c.CoreV1().ConfigMaps(s.GetNamespace()).Update(ctx, cm, metav1.UpdateOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to update configmap: %w", err)
 	}
 
 	return state, nil

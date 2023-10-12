@@ -6,7 +6,7 @@ type Environment struct {
 	// NameTemplate is the Go template used to generate the name of the environment
 	NameTemplate string
 	// ArgoCDApp is the ArgoCD application that deploys the Kubernetes applications
-	ArgoCDApp ArgoCDApp `yaml:"argoCDApp"`
+	ArgoCDApp ArgoCDApp `yaml:"argocdApp"`
 }
 
 type ArgoCDApp struct {

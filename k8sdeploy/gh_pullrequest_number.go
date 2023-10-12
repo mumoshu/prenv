@@ -2,7 +2,7 @@ package k8sdeploy
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"os"
 )
 
@@ -12,7 +12,12 @@ const (
 
 // See https://github.com/actions/checkout/issues/58#issuecomment-589447479
 func GetPullRequestNumber() (*int, error) {
-	data, err := ioutil.ReadFile(os.Getenv(EnvVarGitHubEventPath))
+	ghEventPath := os.Getenv(EnvVarGitHubEventPath)
+	if ghEventPath == "" {
+		return nil, fmt.Errorf("env var %s is not set", EnvVarGitHubEventPath)
+	}
+
+	data, err := os.ReadFile(ghEventPath)
 	if err != nil {
 		return nil, err
 	}

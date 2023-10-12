@@ -134,6 +134,10 @@ spec:
 )
 
 func generateManifests(name, deployTemplate string, c interface{}) ([]file, error) {
+	if name == "" {
+		return nil, fmt.Errorf("name must not be empty: config=%v", c)
+	}
+
 	yamlFile := name + ".yaml"
 	m := template.New(yamlFile)
 	m, err := m.Parse(deployTemplate)

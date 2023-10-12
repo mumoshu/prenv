@@ -38,9 +38,14 @@ func Apply(ctx context.Context, cfg config.Config) error {
 	if envNameTemplate == "" {
 		envNameTemplate = "prenv-{{.PullRequestNumber}}"
 	}
-	a := &k8sdeploy.ArgoCDApp{}
+	a := &k8sdeploy.ArgoCDApp{
+		ArgoCDApp: cfg.Environment.ArgoCDApp,
+	}
 	if err := a.LoadEnvVars(); err != nil {
 		return err
+	}
+	if err := a.Validate(); err != nil {
+		return fmt.Errorf("invalid environment.argocdApp configuration: %w", err)
 	}
 	envNameTmpl := template.Must(template.New("envName").Parse(envNameTemplate))
 	var buf bytes.Buffer

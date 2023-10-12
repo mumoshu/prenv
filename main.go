@@ -49,7 +49,7 @@ func getConfig() (*config.Config, error) {
 
 	f, err := os.Open("prenv.yaml")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to oppen prenv.yaml: %w", err)
 	}
 
 	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
