@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "$SLACK_WEBHOOK_URL" ]; then
+  echo "SLACK_WEBHOOK_URL is required"
+  exit 1
+fi
+
+go run . outgoing-webhook --channel playground --webhook-url $SLACK_WEBHOOK_URL --username prenv

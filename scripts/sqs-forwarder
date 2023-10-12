@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -x
+
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+AWS_REGION=$(aws configure get region)
+
+AWS_PROFILE=$(aws configure get profile)
+
+go run . sqs-forwarder \
+  --delete-message-failure-sleep-seconds 5 \
+  --max-number-of-messages 10 \
+  --receive-message-failure-sleep-seconds 5 \
+  --send-message-failure-sleep-seconds 5 \
+  --sleep-seconds 5 \
+  --source-queue-url https://sqs.${AWS_REGION}.amazonaws.com/${AWS_ACCOUNT_ID}/my-source-queue \
+  --destination-queue-urls https://sqs.${AWS_REGION}.amazonaws.com/${AWS_ACCOUNT_ID}/my-destination-queue \
+  --visibility-timeout-seconds 10 \
+  --wait-time-seconds 5 \
+  --message-attribute-names All \
+  --aws-profile ${AWS_PROFILE} \
+  --aws-region ${AWS_REGION} \
+  --log-level debug

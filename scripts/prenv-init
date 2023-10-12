@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -x
+
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+AWS_REGION=$(aws configure get region)
+
+AWS_PROFILE=$(aws configure get profile)
+
+pushd scripts
+
+go run .. init
+

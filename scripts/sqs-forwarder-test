@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+
+AWS_REGION=${AWS_REGION:-ap-northeast-1}
+AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}
+SOURCE_QUEUE_URL=${SOURCE_QUEUE_URL:-https://sqs.${AWS_REGION}.amazonaws.com/${AWS_ACCOUNT_ID}/my-source-queue}
+DESTINATION_QUEUE_URL=${DESTINATION_QUEUE_URL:-https://sqs.${AWS_REGION}.amazonaws.com/${AWS_ACCOUNT_ID}/my-destination-queue}
+
+# This script is used to send a message to the source queue
+# and then wait for the message to be received on the destination queue.
+
+aws sqs send-message --queue-url $SOURCE_QUEUE_URL --message-body "Hello World" --region $AWS_REGION
+
+echo "Receiving message from destination queue(${DESTINATION_QUEUE_URL})..."
+
+aws sqs receive-message --queue-url $DESTINATION_QUEUE_URL --wait-time-seconds 20 --region $AWS_REGION

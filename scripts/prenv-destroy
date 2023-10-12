@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -x
+
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+AWS_REGION=$(aws configure get region)
+
+AWS_PROFILE=$(aws configure get profile)
+
+pushd scripts
+
+export GITHUB_EVENT_PATH=$(pwd)/event.json
+export GITHUB_SHA=$(git rev-parse remotes/origin/master)
+
+go run .. destroy

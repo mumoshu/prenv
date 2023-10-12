@@ -1,0 +1,32 @@
+awsResources:
+  sourceQueueCreate: true
+  destinationQueueCreate: true
+  destinationQueuesCreate: true
+  sourceQueueURL: testsourcequeue
+  destinationQueueURL: testdestinationqueue
+
+kubernetesResources:
+  image: myorg/prenv:dev
+  sqsForwarder:
+    maxNumberOfMessages: 10
+    waitTimeSeconds: 20
+    sleepSeconds: 10
+    receiveMessageFailureSleepSeconds: 10
+    sendMessageFailureSleepSeconds: 10
+    deleteMessageFailureSleepSeconds: 10
+    visibilityTimeout: 60
+  outgoingWebhook:
+    webhookURL: https://example.com
+    channel: "playground"
+    username: "prenv"
+
+environment:
+  argocdApp:
+    name: myprenv
+    namespace: prenv-apps
+    destinationNamespace: prenv
+    destinationServer: https://kubernetes.default.svc
+    path: manifests
+    repoURL: git@github.com:mumoshu/prenv.git
+    targetRevision: HEAD
+    image: mumoshu/prenv-example-app

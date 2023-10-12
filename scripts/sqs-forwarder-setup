@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# This script is used to create SQS queues needed for testing the
+# SQS forwarder. It is not intended to be used in production.
+
+set -e
+
+# Create the queues
+aws sqs create-queue --queue-name my-source-queue
+aws sqs create-queue --queue-name my-destination-queue
