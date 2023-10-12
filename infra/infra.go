@@ -64,7 +64,7 @@ func Reconcile(ctx context.Context, cfg config.Config) error {
 }
 
 func deployKubernetesResources(ctx context.Context, k8sRes config.KubernetesResources) error {
-	defaults := k8sdeploy.Config{
+	defaults := config.Deploy{
 		Namespace: "prenv",
 		Image:     k8sRes.Image,
 	}
@@ -78,14 +78,18 @@ func deployKubernetesResources(ctx context.Context, k8sRes config.KubernetesReso
 		return fmt.Errorf("unable to build deploy config for outgoing webhook: %w", err)
 	}
 
-	manifestsDir, err := k8sdeploy.Manifests(sf, ow)
-	if err != nil {
-		return fmt.Errorf("unable to generate Kubernetes manifests: %w", err)
-	}
-
-	defer k8sdeploy.Cleanup(manifestsDir)
-
-	if err := k8sdeploy.KubectlApply(ctx, *manifestsDir); err != nil {
+	if err := k8sdeploy.Apply(ctx,
+		k8sdeploy.M{
+			Name:         sf.Name,
+			Template:     k8sdeploy.TemplateDeployment,
+			TemplateData: sf,
+		},
+		k8sdeploy.M{
+			Name:         ow.Name,
+			Template:     k8sdeploy.TemplateDeployment,
+			TemplateData: ow,
+		},
+	); err != nil {
 		return fmt.Errorf("unable to apply Kubernetes manifests: %w", err)
 	}
 

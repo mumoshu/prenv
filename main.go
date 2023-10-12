@@ -110,9 +110,13 @@ func NewCmdApply() *cobra.Command {
 		Use:   "apply",
 		Short: "Apply prenv",
 		Long:  "deploys your application to the Per-Pull Request Environment.",
-		Run: func(cmd *cobra.Command, args []string) {
-			env.Apply()
-		},
+		RunE: runE(func(ctx context.Context) error {
+			cfg, err := getConfig()
+			if err != nil {
+				return err
+			}
+			return env.Apply(ctx, *cfg)
+		}),
 	}
 
 	return cmd
@@ -123,57 +127,67 @@ func NewCmdDestroy() *cobra.Command {
 		Use:   "destroy",
 		Short: "Destroy prenv",
 		Long:  "undeploys your application from the Per-Pull Request Environment.",
-		Run: func(cmd *cobra.Command, args []string) {
-			env.Destroy()
-		},
+		RunE: runE(func(ctx context.Context) error {
+			cfg, err := getConfig()
+			if err != nil {
+				return err
+			}
+			return env.Destroy(ctx, *cfg)
+		}),
 	}
 
 	return cmd
 }
 
 func NewCmdSQSForwarder() *cobra.Command {
-	sf := &sqsforwarder.Forwarder{}
+	var c config.SQSForwarder
 
 	cmd := &cobra.Command{
 		Use:   "sqs-forwarder",
 		Short: "SQS Forwarder",
 		Long:  "starts a daemon that forwards messages from an SQS queue to the downstream, Per-Pull Request Environments' SQS queues.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			sf := sqsforwarder.Forwarder{
+				SQSForwarder: &c,
+			}
 			return sf.Run(cmd.Context())
 		},
 	}
-	cmd.Flags().StringVar(&sf.SourceQueueURL, sqsforwarder.FlagSourceQueueURL, "", "The URL of the source SQS queue.")
-	cmd.Flags().StringSliceVar(&sf.DestinationQueueURLs, sqsforwarder.FlagDestinationQueueURLs, []string{}, "The URLs of the destination SQS queues.")
-	cmd.Flags().Int64Var(&sf.MaxNumberOfMessages, "max-number-of-messages", 1, "The maximum number of messages to receive from the source queue.")
-	cmd.Flags().Int64Var(&sf.VisibilityTimeoutSeconds, "visibility-timeout-seconds", 30, "The duration (in seconds) that the received messages are hidden from subsequent retrieve requests after being retrieved by a ReceiveMessage request.")
-	cmd.Flags().Int64Var(&sf.WaitTimeSeconds, "wait-time-seconds", 20, "The duration (in seconds) for which the call waits for a message to arrive in the queue before returning.")
-	cmd.Flags().Int64Var(&sf.SleepSeconds, "sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after receiving a message from the source queue.")
-	cmd.Flags().Int64Var(&sf.ReceiveMessageFailureSleepSeconds, "receive-message-failure-sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after failing to receive a message from the source queue. This is to prevent the daemon from spamming the source queue with ReceiveMessage requests.")
-	cmd.Flags().Int64Var(&sf.SendMessageFailureSleepSeconds, "send-message-failure-sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after failing to send a message to a destination queue. This is to prevent the daemon from spamming the destination queue with SendMessage requests.")
-	cmd.Flags().Int64Var(&sf.DeleteMessageFailureSleepSeconds, "delete-message-failure-sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after failing to delete a message from the source queue. This is to prevent the daemon from spamming the source queue with DeleteMessage requests.")
-	cmd.Flags().StringSliceVar(&sf.MessageAttributeNames, "message-attribute-names", []string{}, "The message attribute names to receive from the source queue.")
-	cmd.Flags().StringVar(&sf.AWSRegion, "aws-region", "", "The AWS region to use.")
-	cmd.Flags().StringVar(&sf.AWSProfile, "aws-profile", "", "The AWS profile to use.")
-	cmd.Flags().StringVar(&sf.LogLevel, "log-level", "info", "The log level to use. Valid values are \"debug\", \"info\", \"warn\", \"error\", and \"fatal\".")
+	cmd.Flags().StringVar(&c.SourceQueueURL, config.FlagSourceQueueURL, "", "The URL of the source SQS queue.")
+	cmd.Flags().StringSliceVar(&c.DestinationQueueURLs, config.FlagDestinationQueueURLs, []string{}, "The URLs of the destination SQS queues.")
+	cmd.Flags().Int64Var(&c.MaxNumberOfMessages, "max-number-of-messages", 1, "The maximum number of messages to receive from the source queue.")
+	cmd.Flags().Int64Var(&c.VisibilityTimeoutSeconds, "visibility-timeout-seconds", 30, "The duration (in seconds) that the received messages are hidden from subsequent retrieve requests after being retrieved by a ReceiveMessage request.")
+	cmd.Flags().Int64Var(&c.WaitTimeSeconds, "wait-time-seconds", 20, "The duration (in seconds) for which the call waits for a message to arrive in the queue before returning.")
+	cmd.Flags().Int64Var(&c.SleepSeconds, "sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after receiving a message from the source queue.")
+	cmd.Flags().Int64Var(&c.ReceiveMessageFailureSleepSeconds, "receive-message-failure-sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after failing to receive a message from the source queue. This is to prevent the daemon from spamming the source queue with ReceiveMessage requests.")
+	cmd.Flags().Int64Var(&c.SendMessageFailureSleepSeconds, "send-message-failure-sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after failing to send a message to a destination queue. This is to prevent the daemon from spamming the destination queue with SendMessage requests.")
+	cmd.Flags().Int64Var(&c.DeleteMessageFailureSleepSeconds, "delete-message-failure-sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after failing to delete a message from the source queue. This is to prevent the daemon from spamming the source queue with DeleteMessage requests.")
+	cmd.Flags().StringSliceVar(&c.MessageAttributeNames, "message-attribute-names", []string{}, "The message attribute names to receive from the source queue.")
+	cmd.Flags().StringVar(&c.AWSRegion, "aws-region", "", "The AWS region to use.")
+	cmd.Flags().StringVar(&c.AWSProfile, "aws-profile", "", "The AWS profile to use.")
+	cmd.Flags().StringVar(&c.LogLevel, "log-level", "info", "The log level to use. Valid values are \"debug\", \"info\", \"warn\", \"error\", and \"fatal\".")
 
 	return cmd
 }
 
 func NewCmdOutgoingWebhook() *cobra.Command {
-	owh := &outgoingwebhook.Server{}
+	var c config.OutgoingWebhookServer
 
 	cmd := &cobra.Command{
 		Use:   "outgoing-webhook",
 		Short: "Outgoing Webhook",
 		Long:  "starts a web server receives outgoing webhooks from the Per-Pull Request Environments and forwards them to the Slack channel of your choice.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			owh := &outgoingwebhook.Server{
+				OutgoingWebhookServer: &c,
+			}
 			return owh.Run(cmd.Context())
 		},
 	}
 
-	cmd.Flags().StringVar(&owh.WebhookURL, outgoingwebhook.FlagWebhookURL, "", "The URL of the Slack webhook.")
-	cmd.Flags().StringVar(&owh.Channel, outgoingwebhook.FlagChannel, "", "The channel to send the message to.")
-	cmd.Flags().StringVar(&owh.Username, outgoingwebhook.FlagUsername, "", "The username to send the message as.")
+	cmd.Flags().StringVar(&c.WebhookURL, config.FlagWebhookURL, "", "The URL of the Slack webhook.")
+	cmd.Flags().StringVar(&c.Channel, config.FlagChannel, "", "The channel to send the message to.")
+	cmd.Flags().StringVar(&c.Username, config.FlagUsername, "", "The username to send the message as.")
 
 	return cmd
 }

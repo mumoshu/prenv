@@ -3,13 +3,11 @@ package outgoingwebhook
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 
-	"github.com/mumoshu/prenv/k8sdeploy"
+	"github.com/mumoshu/prenv/config"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -20,42 +18,16 @@ import (
 // The webhook expects a POST request with any form values.
 // Each form value becomes a Slack attachment field.
 type Server struct {
-	// The URL of the Slack webhook.
-	WebhookURL string `json:"webhookURL"`
-	// The channel to send the message to.
-	Channel string `json:"channel"`
-	// The username to send the message as.
-	Username string `json:"username"`
-}
-
-const (
-	FlagWebhookURL = "webhook-url"
-	FlagChannel    = "channel"
-	FlagUsername   = "username"
-)
-
-func (s *Server) BuildDeployConfig(defaults k8sdeploy.Config) (*k8sdeploy.Config, error) {
-	if err := s.Validate(); err != nil {
-		return nil, errors.Wrap(err, "invalid configuration")
-	}
-
-	c := defaults.Clone()
-	c.Name = "outgoing-webhook"
-	c.Command = "prenv"
-	c.Args = []string{
-		"outgoing-webhook",
-		"--" + FlagWebhookURL, s.WebhookURL,
-		"--" + FlagChannel, s.Channel,
-		"--" + FlagUsername, s.Username,
-	}
-	return &c, nil
+	*config.OutgoingWebhookServer
 }
 
 func NewOutgoingWebhook(webhookURL, channel, username string) *Server {
 	return &Server{
-		WebhookURL: webhookURL,
-		Channel:    channel,
-		Username:   username,
+		&config.OutgoingWebhookServer{
+			WebhookURL: webhookURL,
+			Channel:    channel,
+			Username:   username,
+		},
 	}
 }
 
@@ -166,30 +138,6 @@ func (o *Server) handleRequest(w http.ResponseWriter, r *http.Request) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.Errorf("failed to send message to Slack: %s", resp.Status)
-	}
-
-	return nil
-}
-
-func (o *Server) String() string {
-	return fmt.Sprintf("OutgoingWebhook{WebhookURL: %s, Channel: %s, Username: %s}", o.WebhookURL, o.Channel, o.Username)
-}
-
-func (o *Server) Validate() error {
-	if o.WebhookURL == "" {
-		return errors.New("webhook_url is required")
-	}
-
-	if _, err := url.Parse(o.WebhookURL); err != nil {
-		return errors.Wrap(err, "failed to parse webhook_url")
-	}
-
-	if o.Channel == "" {
-		return errors.New("channel is required")
-	}
-
-	if o.Username == "" {
-		return errors.New("username is required")
 	}
 
 	return nil

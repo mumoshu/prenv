@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/mumoshu/prenv/config"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateManifests(t *testing.T) {
 	port := 8080
-	config := Config{
+	config := config.Deploy{
 		Name:      "myapp",
 		Namespace: "myns",
 		Command:   "myapp",
@@ -30,7 +31,7 @@ func TestGenerateManifests(t *testing.T) {
 }
 
 func TestGenerateManifestsNoPort(t *testing.T) {
-	config := Config{
+	config := config.Deploy{
 		Name:      "myapp",
 		Namespace: "myns",
 		Command:   "myapp",
@@ -46,15 +47,14 @@ func TestGenerateManifestsNoPort(t *testing.T) {
 	testGenerateManifests(t, config)
 }
 
-func testGenerateManifests(t *testing.T, config Config) {
+func testGenerateManifests(t *testing.T, config config.Deploy) {
 	t.Helper()
 
 	snapshotName := strings.ToLower(
 		strings.ReplaceAll(t.Name(), "/", "_"),
 	) + ".yaml"
-	dir := t.TempDir()
 
-	got, err := generateManifests(dir, &config)
+	got, err := generateManifests(config.Name, TemplateDeployment, &config)
 	require.NoError(t, err)
 
 	var snapshot string

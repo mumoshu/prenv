@@ -30,3 +30,21 @@ func (k *kubectl) Apply(ctx context.Context, path string) error {
 
 	return nil
 }
+
+func (k *kubectl) Delete(ctx context.Context, path string) error {
+	cmd := exec.CommandContext(ctx, "kubectl", "delete", "-f", path)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	logrus.Debugf("running %s", strings.Join(cmd.Args, " "))
+
+	if err := cmd.Run(); err != nil {
+		return errors.Wrapf(err, "kubectl delete failed: %s", stderr.String())
+	}
+
+	logrus.Debugf("kubectl delete succeeded: %s", stdout.String())
+
+	return nil
+}

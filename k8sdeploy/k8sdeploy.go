@@ -13,54 +13,37 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Config represents the desired state of the Kubernetes application.
-// Each Kubernetes application is a set of Kubernetes resources.
-type Config struct {
-	Name      string   `yaml:"name"`
-	Namespace string   `yaml:"namespace"`
-	Replicas  *int     `yaml:"replicas"`
-	Command   string   `yaml:"command"`
-	Image     string   `yaml:"image"`
-	Args      []string `yaml:"args"`
-	Port      *int     `yaml:"port"`
-}
-
-func (c *Config) Clone() Config {
-	clone := *c
-	if c.Replicas != nil {
-		replicas := *c.Replicas
-		clone.Replicas = &replicas
-	}
-	clone.Args = append([]string{}, c.Args...)
-	return clone
-}
-
 const (
 	tempDirPattern = "k8sdeploy"
 )
+
+type M struct {
+	// Name is the base name of the Kubernetes application.
+	// The actual name of the Kubernetes application will be
+	// Name-PullRequestNumber by default.
+	Name string
+
+	// Template is the Go template to be used to render the Kubernetes manifests.
+	Template string
+
+	// TemplateData is the data to be used to render the Kubernetes manifests.
+	TemplateData interface{}
+}
 
 // Manifests generates Kubernetes manifests for the given Kubernetes application.
 // The manifests are written to a temporary directory.
 // It's the caller's responsibility to delete the directory.
 // This package provides a helper function Cleanup for that purpose.
-func Manifests(configs ...*Config) (*string, error) {
-	f, err := os.CreateTemp("", tempDirPattern)
+func Manifests(ms ...M) (*string, error) {
+	d, err := CreateTempDir()
 	if err != nil {
 		return nil, err
 	}
 
-	dir := f.Name()
+	dir := *d
 
-	if err := os.Remove(dir); err != nil {
-		return nil, fmt.Errorf("unable to replace the temp file %s with a directory: %w", dir, err)
-	}
-
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, err
-	}
-
-	for _, c := range configs {
-		files, err := generateManifests(dir, c)
+	for _, m := range ms {
+		files, err := generateManifests(m.Name, m.Template, m.TemplateData)
 		if err != nil {
 			return nil, err
 		}
@@ -96,9 +79,8 @@ type file struct {
 	Content string
 }
 
-func generateManifests(dir string, c *Config) ([]file, error) {
-	const (
-		deployTemplate = `apiVersion: v1
+const (
+	TemplateDeployment = `apiVersion: v1
 kind: Namespace
 metadata:
   name: {{ .Namespace }}
@@ -149,8 +131,10 @@ spec:
     targetPort: {{ .Port }}
 {{- end }}
 `
-	)
-	yamlFile := c.Name + ".yaml"
+)
+
+func generateManifests(name, deployTemplate string, c interface{}) ([]file, error) {
+	yamlFile := name + ".yaml"
 	m := template.New(yamlFile)
 	m, err := m.Parse(deployTemplate)
 	if err != nil {
@@ -169,6 +153,38 @@ spec:
 			Content: buf.String(),
 		},
 	}, nil
+}
+
+// Apply deploys the application by generating manifests and kubectl-applying them to the Kubernetes cluster.
+func Apply(ctx context.Context, ms ...M) error {
+	manifestsDir, err := Manifests(ms...)
+	if err != nil {
+		return fmt.Errorf("unable to generate Kubernetes manifests: %w", err)
+	}
+
+	defer Cleanup(manifestsDir)
+
+	if err := KubectlApply(ctx, *manifestsDir); err != nil {
+		return fmt.Errorf("unable to apply Kubernetes manifests: %w", err)
+	}
+
+	return nil
+}
+
+// Delete deletes the application by generating manifests and kubectl-deleting them from the Kubernetes cluster.
+func Delete(ctx context.Context, ms ...M) error {
+	manifestsDir, err := Manifests(ms...)
+	if err != nil {
+		return fmt.Errorf("unable to generate Kubernetes manifests: %w", err)
+	}
+
+	defer Cleanup(manifestsDir)
+
+	if err := KubectlDelete(ctx, *manifestsDir); err != nil {
+		return fmt.Errorf("unable to delete Kubernetes resources: %w", err)
+	}
+
+	return nil
 }
 
 func KubectlApply(ctx context.Context, path string) error {
@@ -200,6 +216,16 @@ func KubectlApply(ctx context.Context, path string) error {
 				logrus.Info("Please check the file, fix the config file or file a bug report.")
 			}
 		}
+		return err
+	}
+
+	return nil
+}
+
+func KubectlDelete(ctx context.Context, path string) error {
+	k := &kubectl{}
+
+	if err := k.Delete(ctx, path); err != nil {
 		return err
 	}
 
