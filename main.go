@@ -163,7 +163,7 @@ func NewCmdSQSForwarder() *cobra.Command {
 	cmd.Flags().Int64Var(&c.SendMessageFailureSleepSeconds, "send-message-failure-sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after failing to send a message to a destination queue. This is to prevent the daemon from spamming the destination queue with SendMessage requests.")
 	cmd.Flags().Int64Var(&c.DeleteMessageFailureSleepSeconds, "delete-message-failure-sleep-seconds", 10, "The duration (in seconds) that the daemon sleeps after failing to delete a message from the source queue. This is to prevent the daemon from spamming the source queue with DeleteMessage requests.")
 	cmd.Flags().StringSliceVar(&c.MessageAttributeNames, "message-attribute-names", []string{}, "The message attribute names to receive from the source queue.")
-	cmd.Flags().StringVar(&c.AWSRegion, "aws-region", "", "The AWS region to use.")
+	cmd.Flags().StringVar(&c.AWSRegion, config.FlagAWSRegion, "", "The AWS region to use.")
 	cmd.Flags().StringVar(&c.AWSProfile, "aws-profile", "", "The AWS profile to use.")
 	cmd.Flags().StringVar(&c.LogLevel, "log-level", "info", "The log level to use. Valid values are \"debug\", \"info\", \"warn\", \"error\", and \"fatal\".")
 
