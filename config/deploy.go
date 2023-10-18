@@ -3,13 +3,14 @@ package config
 // Deploy represents the desired state of the Kubernetes application.
 // Each Kubernetes application is a set of Kubernetes resources.
 type Deploy struct {
-	Name      string   `yaml:"name"`
-	Namespace string   `yaml:"namespace"`
-	Replicas  *int     `yaml:"replicas"`
-	Command   string   `yaml:"command"`
-	Image     string   `yaml:"image"`
-	Args      []string `yaml:"args"`
-	Port      *int     `yaml:"port"`
+	Name      string            `yaml:"name"`
+	Namespace string            `yaml:"namespace"`
+	Replicas  *int              `yaml:"replicas"`
+	Command   string            `yaml:"command"`
+	Image     string            `yaml:"image"`
+	Args      []string          `yaml:"args"`
+	Port      *int              `yaml:"port"`
+	Env       map[string]string `yaml:"env"`
 }
 
 func (c *Deploy) Clone() Deploy {

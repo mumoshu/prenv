@@ -47,6 +47,21 @@ func TestGenerateManifestsNoPort(t *testing.T) {
 	testGenerateManifests(t, config)
 }
 
+func TestGenerateManifestsEnv(t *testing.T) {
+	config := config.Deploy{
+		Name:      "myapp",
+		Namespace: "myns",
+		Command:   "myapp",
+		Image:     "myorg/myapp:dev",
+		Env: map[string]string{
+			"FOO": "bar",
+			"BAZ": "qux",
+		},
+	}
+
+	testGenerateManifests(t, config)
+}
+
 func testGenerateManifests(t *testing.T, config config.Deploy) {
 	t.Helper()
 

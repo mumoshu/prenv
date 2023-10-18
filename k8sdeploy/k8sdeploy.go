@@ -111,10 +111,19 @@ spec:
 		{{- end }}
         command:
         - {{ .Command }}
+        {{- if .Args }}
         args:
         {{- range $arg := .Args }}
         - {{ $arg }}
         {{- end }}
+        {{- end }}
+        {{- if .Env }}
+        env:
+        {{- range $key, $value := .Env }}
+        - name: {{ $key }}
+          value: {{ $value }}
+		  {{- end }}
+		  {{- end }}
 {{ if .Port -}}
 ---
 apiVersion: v1
