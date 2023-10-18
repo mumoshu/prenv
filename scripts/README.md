@@ -15,11 +15,12 @@ We don't currently care about:
 
 - Where the ArgoCD server is deployed because prenv doesn't interact with it directly.
 
-Notes:
-
-- If you are going to run the tests in a cluster that already has ArgoCD installed, you might
+If you are going to run the tests in an EKS cluster that already has ArgoCD installed, you might
 want to follow these steps:
 
+- Ensure that you have run `aws eks update-kubeconfig --name <cluster-name>` and that you are
+  using the correct context.
+- Ensure that you have access, in terms of AWS IAM, to create and delete SQS queues.
 - Update [`prenv.yaml`](prenv.yaml) with the your own settings:
   - `awsResources`
     - If you have an existingi SQS queue to be reused, you might want do update the settings to something lilke this:
