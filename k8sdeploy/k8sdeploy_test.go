@@ -62,6 +62,38 @@ func TestGenerateManifestsEnv(t *testing.T) {
 	testGenerateManifests(t, config)
 }
 
+func TestGenerateManifestsSecretEnv(t *testing.T) {
+	config := config.Deploy{
+		Name:      "myapp",
+		Namespace: "myns",
+		Command:   "myapp",
+		Image:     "myorg/myapp:dev",
+		SecretEnv: map[string]string{
+			"FOO": "bar",
+			"BAZ": "qux",
+		},
+	}
+
+	testGenerateManifests(t, config)
+}
+
+func TestGenerateManifestsEnvWithSecretEnv(t *testing.T) {
+	config := config.Deploy{
+		Name:      "myapp",
+		Namespace: "myns",
+		Command:   "myapp",
+		Image:     "myorg/myapp:dev",
+		Env: map[string]string{
+			"FOO": "bar",
+		},
+		SecretEnv: map[string]string{
+			"BAZ": "qux",
+		},
+	}
+
+	testGenerateManifests(t, config)
+}
+
 func testGenerateManifests(t *testing.T, config config.Deploy) {
 	t.Helper()
 

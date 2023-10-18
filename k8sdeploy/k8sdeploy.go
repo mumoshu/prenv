@@ -3,6 +3,7 @@ package k8sdeploy
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -84,6 +85,19 @@ const (
 kind: Namespace
 metadata:
   name: {{ .Namespace }}
+{{- if .SecretEnv }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Name }}
+  namespace: {{ .Namespace }}
+type: Opaque
+data:
+{{- range $key, $value := .SecretEnv }}
+  {{ $key }}: {{ $value | b64enc }}
+{{- end }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -117,13 +131,20 @@ spec:
         - {{ $arg }}
         {{- end }}
         {{- end }}
-        {{- if .Env }}
+        {{- if or .Env .SecretEnv }}
         env:
         {{- range $key, $value := .Env }}
         - name: {{ $key }}
           value: {{ $value }}
-		  {{- end }}
-		  {{- end }}
+        {{- end }}
+        {{- range $key, $value := .SecretEnv }}
+        - name: {{ $key }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Name }}
+              key: {{ $key }}
+        {{- end }}
+        {{- end }}
 {{ if .Port -}}
 ---
 apiVersion: v1
@@ -149,6 +170,11 @@ func generateManifests(name, deployTemplate string, c interface{}) ([]file, erro
 
 	yamlFile := name + ".yaml"
 	m := template.New(yamlFile)
+	m = m.Funcs(template.FuncMap{
+		"b64enc": func(s string) string {
+			return base64.StdEncoding.EncodeToString([]byte(s))
+		},
+	})
 	m, err := m.Parse(deployTemplate)
 	if err != nil {
 		return nil, err

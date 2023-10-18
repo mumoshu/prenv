@@ -11,6 +11,7 @@ type Deploy struct {
 	Args      []string          `yaml:"args"`
 	Port      *int              `yaml:"port"`
 	Env       map[string]string `yaml:"env"`
+	SecretEnv map[string]string `yaml:"secretEnv"`
 }
 
 func (c *Deploy) Clone() Deploy {
