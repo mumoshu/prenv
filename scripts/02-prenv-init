@@ -2,11 +2,12 @@
 
 set -x
 
+echo "Running prenv-init to install prenv components"
+
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 AWS_REGION=$(aws configure get region)
-
 AWS_PROFILE=$(aws configure get profile)
 
 pushd scripts
 
-go run .. deinit
+go run .. init

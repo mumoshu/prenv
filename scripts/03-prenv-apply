@@ -2,16 +2,11 @@
 
 set -x
 
+echo "Running prenv-apply to create a prenv"
+
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 AWS_REGION=$(aws configure get region)
-
 AWS_PROFILE=$(aws configure get profile)
-
-echo Installing ArgoCD...
-
-kubectl get ns argocd || kubectl create ns argocd
-
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
 pushd scripts
 
