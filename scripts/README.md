@@ -20,10 +20,23 @@ Notes:
 - If you are going to run the tests in a cluster that already has ArgoCD installed, you might
 want to follow these steps:
 
-- Update `environment.argocdApp` in [`prenv.yaml`](prenv.yaml) with the your own settings for...
-  - `repoURL`: Git repository
-  - `path`: The path to the manifests
-  - `image`: The image to use for the application
+- Update [`prenv.yaml`](prenv.yaml) with the your own settings:
+  - `awsResources`
+    - If you have an existingi SQS queue to be reused, you might want do update the settings to something lilke this:
+      ```yaml
+      awsResources:
+        sourceQueueCreate: true
+        sourceQueueURL: yourpreferredname
+        # By setting this to false, prenv will not create the destination queue and instead will use the existing one
+        destinationQueueCreate: false
+        destinationQueueURL: <yourexistingqueue name or url>
+        # Keep this to true for letting prenv to create the queues for prenvs
+        destinationQueuesCreate: true
+      ```
+  - `environment.argocdApp`
+    - `repoURL`: Git repository
+    - `path`: The path to the manifests
+    - `image`: The image to use for the application
   directory you want prenv to use.
 - Run `02-prenv-init`
 - Run `03-prenv-apply`
