@@ -17,9 +17,10 @@ type OutgoingWebhookServer struct {
 }
 
 const (
-	FlagWebhookURL = "webhook-url"
-	FlagChannel    = "channel"
-	FlagUsername   = "username"
+	FlagWebhookURL     = "webhook-url"
+	FlagChannel        = "channel"
+	FlagUsername       = "username"
+	EnvSlackWebhookURL = "SLACK_WEBHOOK_URL"
 )
 
 func (s *OutgoingWebhookServer) BuildDeployConfig(defaults Deploy) (*Deploy, error) {
@@ -32,9 +33,11 @@ func (s *OutgoingWebhookServer) BuildDeployConfig(defaults Deploy) (*Deploy, err
 	c.Command = "prenv"
 	c.Args = []string{
 		"outgoing-webhook",
-		"--" + FlagWebhookURL, s.WebhookURL,
 		"--" + FlagChannel, s.Channel,
 		"--" + FlagUsername, s.Username,
+	}
+	c.SecretEnv = map[string]string{
+		EnvSlackWebhookURL: s.WebhookURL,
 	}
 	return &c, nil
 }

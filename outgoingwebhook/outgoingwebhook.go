@@ -50,11 +50,11 @@ func (o *Server) Run(ctx context.Context) error {
 		return errors.Wrap(err, "invalid configuration")
 	}
 
-	if os.Getenv("SLACK_WEBHOOK_URL") != "" {
+	if e := os.Getenv(config.EnvSlackWebhookURL); e != "" {
 		if o.WebhookURL != "" {
-			logrus.Warn("SLACK_WEBHOOK_URL is set but webhook-url is also set. Using webhook-url.")
+			logrus.Warnf("%s is set but webhook-url is also set. Using webhook-url.", config.EnvSlackWebhookURL)
 		} else {
-			o.WebhookURL = os.Getenv("SLACK_WEBHOOK_URL")
+			o.WebhookURL = e
 		}
 	}
 
