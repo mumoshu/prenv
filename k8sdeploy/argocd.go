@@ -21,6 +21,8 @@ spec:
     targetRevision: {{ .TargetRevision }}
     path: {{ .Path }}
     kustomize:
+      # https://argo-cd.readthedocs.io/en/stable/user-guide/kustomize/#setting-the-manifests-namespace
+      namespace: {{ .DestinationNamespace }}
       images:
        - '{{ .Image }}:{{ .GitHubSHA }}'
   syncPolicy:
