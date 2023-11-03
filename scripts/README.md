@@ -9,7 +9,7 @@ Pre-requisites:
 We use the following conditions in the tests:
 
 - `prenv-apps` is the namespace where the ArgoCD applications for prenvs are created.
-- `prenv` is the namespace where the prenv components (sqs-forwarder, outgoing-webhook) are deployed.
+- `prenv-system` is the namespace where the prenv components (sqs-forwarder, outgoing-webhook) are deployed.
 
 We don't currently care about:
 

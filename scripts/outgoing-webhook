@@ -7,4 +7,11 @@ if [ -z "$SLACK_WEBHOOK_URL" ]; then
   exit 1
 fi
 
-go run . outgoing-webhook --channel playground --webhook-url $SLACK_WEBHOOK_URL --username prenv
+if [ -z "$SLACK_WEBHOOK_CHANNEL" ]; then
+  echo "SLACK_WEBHOOK_CHANNEL is required"
+  exit 1
+fi
+
+slack_webhook_url=$SLACK_WEBHOOK_URL
+
+SLACK_WEBHOOK_URL= go run . outgoing-webhook --channel $SLACK_WEBHOOK_CHANNEL --webhook-url $slack_webhook_url --username prenv
