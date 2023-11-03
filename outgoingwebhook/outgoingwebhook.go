@@ -46,16 +46,16 @@ func NewOutgoingWebhook(webhookURL, channel, username string) *Server {
 // If the webhook URL is empty and the environment variable SLACK_WEBHOOK_URL is set,
 // the webhook URL is set to the value of the environment variable.
 func (o *Server) Run(ctx context.Context) error {
-	if err := o.Validate(); err != nil {
-		return errors.Wrap(err, "invalid configuration")
-	}
-
 	if e := os.Getenv(config.EnvSlackWebhookURL); e != "" {
 		if o.WebhookURL != "" {
 			logrus.Warnf("%s is set but webhook-url is also set. Using webhook-url.", config.EnvSlackWebhookURL)
 		} else {
 			o.WebhookURL = e
 		}
+	}
+
+	if err := o.Validate(); err != nil {
+		return errors.Wrap(err, "invalid configuration")
 	}
 
 	logrus.WithField("address", o.Address()).Info("starting outgoing webhook server")
