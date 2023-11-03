@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -11,8 +12,8 @@ const (
 	FlagSourceQueueURL       = "source-queue-url"
 	FlagDestinationQueueURLs = "destination-queue-urls"
 	FlagAWSRegion            = "aws-region"
-	EnvAWSAccessKeyID        = "AWS_ACCESS_KEY_ID"
-	EnvAWSSecretAccessKey    = "AWS_SECRET_ACCESS_KEY"
+	EnvAWSAccessKeyID        = "PRENV_AWS_ACCESS_KEY_ID"
+	EnvAWSSecretAccessKey    = "PRENV_AWS_SECRET_ACCESS_KEY"
 )
 
 type SQSForwarder struct {
@@ -106,17 +107,17 @@ func (f *SQSForwarder) BuildDeployConfig(defaults Deploy) (*Deploy, error) {
 		"--" + FlagDestinationQueueURLs, strings.Join(f.DestinationQueueURLs, ","),
 		"--" + FlagAWSRegion, f.AWSRegion,
 	}
-	keyId := os.Getenv("AWS_ACCESS_KEY_ID")
-	if keyId != "" {
-		return nil, errors.New("AWS_ACCESS_KEY_ID is required")
+	keyId := os.Getenv(EnvAWSAccessKeyID)
+	if keyId == "" {
+		return nil, fmt.Errorf("%s is required", EnvAWSAccessKeyID)
 	}
-	secretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-	if secretKey != "" {
-		return nil, errors.New("AWS_SECRET_ACCESS_KEY is required")
+	secretKey := os.Getenv(EnvAWSSecretAccessKey)
+	if secretKey == "" {
+		return nil, fmt.Errorf("%s is required", EnvAWSSecretAccessKey)
 	}
 	c.SecretEnv = map[string]string{
-		EnvAWSAccessKeyID:     keyId,
-		EnvAWSSecretAccessKey: secretKey,
+		"AWS_ACCESS_KEY_ID":     keyId,
+		"AWS_SECRET_ACCESS_KEY": secretKey,
 	}
 	return &c, nil
 }
