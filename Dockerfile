@@ -1,4 +1,7 @@
-FROM golang:1.21
+FROM golang:1.21 AS builder
+
+RUN apt update -y && \
+  apt install -y ca-certificates
 
 WORKDIR /app
 
@@ -13,4 +16,5 @@ RUN CGO_ENABLED=0 go build -o prenv .
 
 FROM scratch
 
-COPY --from=0 /app/prenv /usr/local/bin/prenv
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /app/prenv /usr/local/bin/prenv
