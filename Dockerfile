@@ -3,16 +3,16 @@ FROM golang:1.21 AS builder
 RUN apt update -y && \
   apt install -y ca-certificates
 
-WORKDIR /app
+# WORKDIR /app
 
-COPY go.mod ./
-COPY go.sum ./
+# COPY go.mod ./
+# COPY go.sum ./
 
-RUN go mod download
+# RUN go mod download
 
-COPY . .
+# COPY . .
 
-RUN CGO_ENABLED=0 go build -o prenv .
+# RUN CGO_ENABLED=0 go build -o prenv .
 
 FROM ubuntu:jammy as deps
 
@@ -28,6 +28,7 @@ FROM amazon/aws-cli:2.13.33
 
 COPY --from=deps /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /app/prenv /usr/local/bin/prenv
+# COPY --from=builder /app/prenv /usr/local/bin/prenv
+COPY prenv /usr/local/bin/prenv
 
 ENTRYPOINT ["/usr/local/bin/prenv"]

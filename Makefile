@@ -25,3 +25,7 @@ lint:
 test:
 	go test -v ./...
 .PHONY: test
+
+goreleaser-snapshot:
+	curl -sfL https://goreleaser.com/static/run | bash -s -- --release --clean --snapshot
+.PHONY: goreleaser-snapshot
