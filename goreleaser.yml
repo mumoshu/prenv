@@ -1,0 +1,21 @@
+project_name: prenv
+env:
+builds:
+  - id: prenv
+    main: ./
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+      - "386"
+changelog:
+  use: github-native
+
+release:
+  prerelease: auto
