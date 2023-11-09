@@ -201,7 +201,11 @@ func Apply(ctx context.Context, ms ...M) error {
 		return fmt.Errorf("unable to generate Kubernetes manifests: %w", err)
 	}
 
-	defer Cleanup(manifestsDir)
+	defer func() {
+		if err := Cleanup(manifestsDir); err != nil {
+			logrus.Error(err)
+		}
+	}()
 
 	if err := KubectlApply(ctx, *manifestsDir); err != nil {
 		return fmt.Errorf("unable to apply Kubernetes manifests: %w", err)
@@ -217,7 +221,11 @@ func Delete(ctx context.Context, ms ...M) error {
 		return fmt.Errorf("unable to generate Kubernetes manifests: %w", err)
 	}
 
-	defer Cleanup(manifestsDir)
+	defer func() {
+		if err := Cleanup(manifestsDir); err != nil {
+			logrus.Error(err)
+		}
+	}()
 
 	if err := KubectlDelete(ctx, *manifestsDir); err != nil {
 		return fmt.Errorf("unable to delete Kubernetes resources: %w", err)
