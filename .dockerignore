@@ -1,0 +1,6 @@
+Dockerfile
+*.md
+Makefile
+.*
+.github
+*.yaml
