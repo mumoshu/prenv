@@ -19,3 +19,21 @@ changelog:
 
 release:
   prerelease: auto
+
+docker_manifests:
+  - name_template: mumoshu/prenv:canary
+    image_templates:
+      - mumoshu/prenv:canary-amd64
+      - mumoshu/prenv:canary-arm64
+  - name_template: mumoshu/prenv:{{ .Version }}
+    image_templates:
+      - mumoshu/prenv:{{ .Version }}-amd64
+      - mumoshu/prenv:{{ .Version }}-arm64
+  - name_template: mumoshu/prenv:{{ .Major }}
+    image_templates:
+      - mumoshu/prenv:{{ .Major }}-amd64
+      - mumoshu/prenv:{{ .Major }}-arm64
+  - name_template: mumoshu/prenv:{{ .Major }}.{{ .Minor }}
+    image_templates:
+      - mumoshu/prenv:{{ .Major }}.{{ .Minor }}-amd64
+      - mumoshu/prenv:{{ .Major }}.{{ .Minor }}-arm64
