@@ -22,7 +22,7 @@ spec:
     path: {{ .Path }}
     kustomize:
       # https://argo-cd.readthedocs.io/en/stable/user-guide/kustomize/#setting-the-manifests-namespace
-      namespace: {{ .DestinationNamespace }}
+      namespace: {{ .DestinationNamespace }}-{{ .PullRequestNumber }}
       images:
        - '{{ .Image }}:{{ .GitHubSHA }}'
   syncPolicy:
