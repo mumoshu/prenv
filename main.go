@@ -7,6 +7,7 @@ import (
 	"os/signal"
 
 	"github.com/goccy/go-yaml"
+	"github.com/mumoshu/prenv/build"
 	"github.com/mumoshu/prenv/config"
 	"github.com/mumoshu/prenv/env"
 	"github.com/mumoshu/prenv/infra"
@@ -17,7 +18,10 @@ import (
 )
 
 func main() {
-	var rootCmd = &cobra.Command{Use: "prenv"}
+	var rootCmd = &cobra.Command{
+		Use:     "prenv",
+		Version: build.Version(),
+	}
 	rootCmd.AddCommand(NewCmdInit())
 	rootCmd.AddCommand(NewCmdDeinit())
 	rootCmd.AddCommand(NewCmdApply())
