@@ -20,20 +20,51 @@ changelog:
 release:
   prerelease: auto
 
+dockers:
+  # https://goreleaser.com/customization/docker/
+  - use: buildx
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "mumoshu/{{ .ProjectName }}:canary-amd64"
+      - "mumoshu/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "mumoshu/{{ .ProjectName }}:{{ .Major }}-amd64"
+      - "mumoshu/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-amd64"
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "mumoshu/{{ .ProjectName }}:canary-arm64"
+      - "mumoshu/{{ .ProjectName }}:{{ .Version }}-arm64"
+      - "mumoshu/{{ .ProjectName }}:{{ .Major }}-arm64"
+      - "mumoshu/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-arm64"
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
 docker_manifests:
-  - name_template: mumoshu/prenv:canary
+  - name_template: mumoshu/{{ .ProjectName }}:canary
     image_templates:
-      - mumoshu/prenv:canary-amd64
-      - mumoshu/prenv:canary-arm64
-  - name_template: mumoshu/prenv:{{ .Version }}
+      - mumoshu/{{ .ProjectName }}:canary-amd64
+      - mumoshu/{{ .ProjectName }}:canary-arm64
+  - name_template: mumoshu/{{ .ProjectName }}:{{ .Version }}
     image_templates:
-      - mumoshu/prenv:{{ .Version }}-amd64
-      - mumoshu/prenv:{{ .Version }}-arm64
-  - name_template: mumoshu/prenv:{{ .Major }}
+      - mumoshu/{{ .ProjectName }}:{{ .Version }}-amd64
+      - mumoshu/{{ .ProjectName }}:{{ .Version }}-arm64
+  - name_template: mumoshu/{{ .ProjectName }}:{{ .Major }}
     image_templates:
-      - mumoshu/prenv:{{ .Major }}-amd64
-      - mumoshu/prenv:{{ .Major }}-arm64
-  - name_template: mumoshu/prenv:{{ .Major }}.{{ .Minor }}
+      - mumoshu/{{ .ProjectName }}:{{ .Major }}-amd64
+      - mumoshu/{{ .ProjectName }}:{{ .Major }}-arm64
+  - name_template: mumoshu/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}
     image_templates:
-      - mumoshu/prenv:{{ .Major }}.{{ .Minor }}-amd64
-      - mumoshu/prenv:{{ .Major }}.{{ .Minor }}-arm64
+      - mumoshu/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-amd64
+      - mumoshu/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-arm64
