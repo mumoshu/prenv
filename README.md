@@ -153,7 +153,7 @@ As a marker, `prenv-apply` creates a `prenv-${PR_NUMBER}` configmap in the names
 
 ### prenv-destroy
 
-`prenv-apply` undeploys your application from the Per-Pull Request Environment.
+`prenv-destroy` undeploys your application from the Per-Pull Request Environment.
 
 `prenv-destroy` reads the `GITHUB_REF` enviroment variable to extract the pull request number, and deletes the Per-Pull Request Environment associated with the pull request.
 
@@ -168,6 +168,12 @@ Once the Per-Pull Request Environment is deleted, `prenv-destroy` deletes the `p
 
 **usage(note that you can specify multiple downstream queues)**: `prenv-sqs-forwarder -region <region> -queue <queue> -downstream-queue <downstream-queue> -downstream-queue <downstream-queue>`
 
+See [scripts/sqs-forwarder](/scripts/sqs-forwarder) for the example command that uses all the available flags.
+
+In practice, `prenv-init` generates those flags and deploy `sqs-forwarder` onto your Kubernetes cluster so you don't have to.
+
+It might still be useful to know about what are configurable and not and how it works by reading the example command, though.
+
 ### prennv-outgoing-webhook
 
 By specifying the base host name, the subdomain will be treated as the environment name to be included in the notification.
@@ -175,6 +181,12 @@ By specifying the base host name, the subdomain will be treated as the environme
 It does also read the `X-Prenv-Environment` header and `Host` header to determine the environment name.
 
 **usage**: `prenv-outgoing-webhook -slack-webhook-url <slack-webhook-url> -base-host <base-host>`
+
+See [scripts/outgoing-webhook](/scripts/outgoing-webhook) for the example command that uses all the available flags.
+
+In practice, `prenv-init` generates those flags and deploy `outgoing-webhook` onto your Kubernetes cluster so you don't have to.
+
+It might still be useful to know about what are configurable and not and how it works by reading the example command, though.
 
 ## Implementation
 
