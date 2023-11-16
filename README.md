@@ -142,6 +142,34 @@ SQS publisher --> existing queue -->
                       --> PR #234 queue  --> PR #234 SQS consumer
 ```
 
+For Option 1, your `prenv.yaml` would look like:
+
+```
+awsResources:
+  # We let prenv create the static queue that SQS publisher sends to
+  sourceQueueCreate: true
+  sourceQueueURL: prenv-static-queue
+  # We reuse the existing queue here
+  destinationQueueCreate: false
+  # However queues for PR envs are created by prenv
+  destinationQueuesCreate: true
+  destinationQueueURL: testdestinationqueue
+```
+
+For Option 2, it would look like:
+
+```
+awsResources:
+  # We reuse the existing queue here
+  sourceQueueCreate: false
+  sourceQueueURL: $URL_OR_NAME_OF_EXISTING_QUEUE
+  # We let prenv create the static queue that SQS consumer subscribes to
+  destinationQueueCreate: true
+  # Queues for PR envs are created by prenv anyway
+  destinationQueuesCreate: true
+  destinationQueueURL: testdestinationqueue
+```
+
 ## Commands
 
 Run locally or on GitHub Actions:
