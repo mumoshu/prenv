@@ -27,6 +27,8 @@ The CLI app is supposed to run locally and on CI, where the long-running apps ar
 
 - Run [`prenv-init`](#prenv-init) to deploy all the prerequisites onto your Kubernetes cluster.
 
+- SQS-only: [Redeploy existing non-PR environment to work with prenv](#reconfiguring-non-PR-environments)
+
 - For each PR:
   - Run [prenv-apply](#prenv-apply) to deploy everything needed for a PR env.
   - Run [prenv-test](#prenv-test) to run the test(s) you defined
@@ -106,6 +108,38 @@ terraform:
     ## queue name to the Terraform module.
     #- name: "queue_name"
     #  valueTemplate: "prenv-{{ .PullRequestNumber }}"
+```
+
+## Reconfiguring non-PR environments
+
+Reconfigure either the sender or the receiver of the original SQS queue to use the SQS managed by `prenv`.
+
+Let's say your application (SQS consumer) takes SQS messages as inputs and your existing non-PR environments looked like the below.
+
+```
+SQS publisher --> existing queue ---> SQS consumer
+```
+
+To avoid manually replicating SQS messages to trigger SQS consumer across environments for testing, we want to replicate messages sent to `SQS consumer`. That's where `prenv-sqs-forwarder` comes in.
+
+Introducing `prenv`, we want the environments to look like the either of the belows.
+
+Option 1: Reconfigure SQS publisher
+
+```
+SQS publisher --> prenv static queue -->
+  prenv-sqs-forwarder --> existing queue --> SQS consumer
+                      --> PR #123 queue  --> PR #123 SQS consumer
+                      --> PR #234 queue  --> PR #234 SQS consumer
+```
+
+Option 2: Reconfigure SQS consumer
+
+```
+SQS publisher --> existing queue -->
+  prenv-sqs-forwarder --> prenv static queue --> SQS consumer
+                      --> PR #123 queue  --> PR #123 SQS consumer
+                      --> PR #234 queue  --> PR #234 SQS consumer
 ```
 
 ## Commands
