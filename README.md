@@ -2,29 +2,36 @@
 
 **prenv** is a toolkit for creating and managing Per-Pull Request Environments for your projects.
 
+By saying a "toolkit", it means that it is a set of a CLI app and long-running apps that together gives you a handy way to manage PR envs.
+
+The CLI app is supposed to run locally and on CI, where the long-running apps are supposed to run locally(for testing) and remotely(for production).
+
 **prenv** is currently composed of the following tools:
 
 - **prenv**: A CLI tool for creating and managing Per-Pull Request Environments.
 - **prenv-sqs-forwarder**: A Go application that forwards messages from an SQS queue to the downstream, Per-Pull Request Environments' SQS queues.
 - **prenv-outgoing-webhook**: A Go application that receives outgoing webhooks from the Per-Pull Request Environments and forwards them to the Slack channel of your choice.
 
+## Status
+
 **prenv** is currently in alpha. It is not recommended for production use.
 
 ## Installation
 
-Run `prenv init` to deploy all the prerequisites onto your Kubernetes cluster.
+- Binaries are available via [GitHub Releases](/releases)
+- Container images are [available on Docker Hub](https://hub.docker.com/r/mumoshu/prenv)
 
-```sh
-curl https://mumoshu.github.io/prenv/init | bash
+## Usage
 
-# Or grab the prenv binary from the latest release
-# and run:
-prenv init
-```
+- Create `prenv.yaml`. See [Configuration](#configuration) for the syntax.
 
-`prenv` and its tools are available as Docker images on Docker Hub and GitHub Container Registry.
+- Run [`prenv-init`](#prenv-init) to deploy all the prerequisites onto your Kubernetes cluster.
 
-There is also a Helm chart for installing prenv and its tools to your Kubernetes cluster. [`prenv-init`](#prenv-init) internally uses the chart to install the tools.
+- For each PR:
+  - Run [prenv-apply](#prenv-apply) to deploy everything needed for a PR env.
+  - Run [prenv-test](#prenv-test) to run the test(s) you defined
+  - Do manual testing by interacting the PR env
+  - Run [prenv-destroy](#prenv-destroy) to destroy the PR env
 
 ## Configuration
 
@@ -129,6 +136,12 @@ Run on cluster:
 ### prenv-apply
 
 `prenv-apply` deploys your application to the Per-Pull Request Environment.
+
+A "Pull-request environment" (PR env in short), is a set of components including AWS resources Kubernetes resources that is dedicated to a pull request.
+
+The `apply` command reads some configuration variables from somewhere and creates or updates AWS and Kubernetes resources.
+
+It reads `event.json` that contains the GitHub Actions event payload or alternatively some environment variables that are available to Actions workflows as input.
 
 `prenv-apply` reads the `GITHUB_REF` enviroment variable to extract the pull request number, and creates the Per-Pull Request Environment.
 
