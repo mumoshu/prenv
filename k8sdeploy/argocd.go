@@ -9,7 +9,7 @@ import (
 const TemplateArgoCDApp = `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: {{ .Name }}-{{ .PullRequestNumber }}
+  name: {{ .Name }}
   namespace: {{ .Namespace }}
 spec:
   destination:
@@ -33,6 +33,10 @@ spec:
 
 type ArgoCDApp struct {
 	config.ArgoCDApp
+
+	// Name is the name of the ArgoCD application.
+	// It will be NameBase-PullRequestNumber by default.
+	Name string
 
 	// The following fields are set by LoadEnvVars.
 
@@ -73,23 +77,4 @@ func (a *ArgoCDApp) Validate() error {
 	}
 
 	return nil
-}
-
-func (a *ArgoCDApp) GenerateManifests() ([]file, error) {
-	if err := a.Validate(); err != nil {
-		return nil, err
-	}
-
-	if err := a.LoadEnvVars(); err != nil {
-		return nil, err
-	}
-
-	appName := a.ArgoCDApp.Name
-	if appName == "" {
-		return nil, fmt.Errorf("argocdApp.name is required")
-	}
-
-	name := fmt.Sprintf("%s-%d", appName, a.PullRequestNumber)
-
-	return generateManifests(name, TemplateArgoCDApp, a)
 }

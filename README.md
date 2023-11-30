@@ -63,12 +63,15 @@ envvars:
   outgoingWebhookURL:
     name: "MY_CUSTOM_OUTGOING_WEBHOOK_URL_ENV_VAR_NAME"
 
+nameTemplate: "{{ .NameBase }}-{{ .PullRequestNumber }}"
+
 ## The following argocd section is asummed by default
 ## when you specify just `argocd: {}`
 argocd:
+  nameBase: "myapp"
   appTemplate: |
     metadata:
-      name: "prenv-{{ .PullRequestNumber }}"
+      name: "{{ .Name }}"
       namespace: "prenv"
     spec:
       source:

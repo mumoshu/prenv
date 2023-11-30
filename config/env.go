@@ -3,17 +3,31 @@ package config
 import "fmt"
 
 type Environment struct {
-	// NameTemplate is the Go template used to generate the name of the environment
-	NameTemplate string
+	// ArgoCDApp is the ArgoCD application that deploys the Kubernetes applications.
+	// You either need to specify the ArgoCDApp for each service or the only ArgoCDApp for the environment.
+	// If you specify the ArgoCDApp for the environment, the ArgoCDApp for each service is ignored.
+	// This is basically populated when your service is a monolith.
+	ArgoCDApp *ArgoCDApp `yaml:"argocdApp"`
+
+	// Services is a map of microservices that are deployed to the Per-Pull Request Environment.
+	// You either need to specify the ArgoCDApp for each service or the only ArgoCDApp for the environment.
+	// If you specify the ArgoCDApp for each service, the ArgoCDApp for the environment is ignored.
+	// This is basically populated when your service is composed of multiple microservices.
+	Services map[string]Service `yaml:"services"`
+}
+
+// Service is a microservice that is deployed to the Per-Pull Request Environment.
+type Service struct {
 	// ArgoCDApp is the ArgoCD application that deploys the Kubernetes applications
+	// for this microservice.
 	ArgoCDApp ArgoCDApp `yaml:"argocdApp"`
 }
 
 type ArgoCDApp struct {
-	// Name is the base name of the Kubernetes application.
+	// NameBase is the base name of the Kubernetes application.
 	// The actual name of the Kubernetes application will be
-	// Name-PullRequestNumber by default.
-	Name string `yaml:"name"`
+	// NameBase-PullRequestNumber by default.
+	NameBase string `yaml:"nameBase"`
 	// Namespace is the namespace of the ArgoCD application.
 	Namespace string `yaml:"namespace"`
 	// DestinationNamespace is the namespace of the Kubernetes application that is deployed by ArgoCD.
@@ -31,7 +45,7 @@ type ArgoCDApp struct {
 }
 
 func (a *ArgoCDApp) Validate() error {
-	if a.Name == "" {
+	if a.NameBase == "" {
 		return fmt.Errorf("name is required")
 	}
 

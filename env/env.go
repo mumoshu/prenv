@@ -34,12 +34,15 @@ import (
 
 func Apply(ctx context.Context, cfg config.Config) error {
 	store := &state.Store{}
-	envNameTemplate := cfg.Environment.NameTemplate
+	envNameTemplate := cfg.EnvironmentNameTemplate
 	if envNameTemplate == "" {
-		envNameTemplate = "prenv-{{.PullRequestNumber}}"
+		envNameTemplate = "{{ .Name }}-{{ .PullRequestNumber }}"
 	}
 	a := &k8sdeploy.ArgoCDApp{
-		ArgoCDApp: cfg.Environment.ArgoCDApp,
+		ArgoCDApp: *cfg.Environment.ArgoCDApp,
+	}
+	if a.NameBase == "" {
+		a.NameBase = "prenv"
 	}
 	if err := a.LoadEnvVars(); err != nil {
 		return err
@@ -56,6 +59,7 @@ func Apply(ctx context.Context, cfg config.Config) error {
 	if err := store.AddEnvironmentName(ctx, envName); err != nil {
 		return err
 	}
+	a.Name = envName
 
 	// Add the new SQS queue and reconfigures the SQS forwarder.
 	if err := infra.Reconcile(ctx, cfg); err != nil {
@@ -71,11 +75,9 @@ func Apply(ctx context.Context, cfg config.Config) error {
 }
 
 func deployKubernetesResources(ctx context.Context, app k8sdeploy.ArgoCDApp) error {
-	name := fmt.Sprintf("%s-%d", app.ArgoCDApp.Name, app.PullRequestNumber)
-
 	if err := k8sdeploy.Apply(ctx,
 		k8sdeploy.M{
-			Name:         name,
+			Name:         app.Name,
 			Template:     k8sdeploy.TemplateArgoCDApp,
 			TemplateData: app,
 		},
@@ -88,12 +90,15 @@ func deployKubernetesResources(ctx context.Context, app k8sdeploy.ArgoCDApp) err
 
 func Destroy(ctx context.Context, cfg config.Config) error {
 	store := &state.Store{}
-	envNameTemplate := cfg.Environment.NameTemplate
+	envNameTemplate := cfg.EnvironmentNameTemplate
 	if envNameTemplate == "" {
-		envNameTemplate = "prenv-{{.PullRequestNumber}}"
+		envNameTemplate = "{{ .NameBase }}-{{.PullRequestNumber}}"
 	}
 	a := &k8sdeploy.ArgoCDApp{
-		ArgoCDApp: cfg.Environment.ArgoCDApp,
+		ArgoCDApp: *cfg.Environment.ArgoCDApp,
+	}
+	if a.NameBase == "" {
+		a.NameBase = "prenv"
 	}
 	if err := a.LoadEnvVars(); err != nil {
 		return err
@@ -110,6 +115,7 @@ func Destroy(ctx context.Context, cfg config.Config) error {
 	if err := store.DeleteEnvironmentName(ctx, envName); err != nil {
 		return err
 	}
+	a.Name = envName
 
 	// Delete the Kubernetes resources.
 	if err := destroyKubernetesResources(ctx, *a); err != nil {
@@ -125,11 +131,9 @@ func Destroy(ctx context.Context, cfg config.Config) error {
 }
 
 func destroyKubernetesResources(ctx context.Context, app k8sdeploy.ArgoCDApp) error {
-	name := fmt.Sprintf("%s-%d", app.ArgoCDApp.Name, app.PullRequestNumber)
-
 	if err := k8sdeploy.Delete(ctx,
 		k8sdeploy.M{
-			Name:         name,
+			Name:         app.Name,
 			Template:     k8sdeploy.TemplateArgoCDApp,
 			TemplateData: app,
 		},

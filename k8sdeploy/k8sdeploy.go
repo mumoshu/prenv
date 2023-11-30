@@ -19,9 +19,7 @@ const (
 )
 
 type M struct {
-	// Name is the base name of the Kubernetes application.
-	// The actual name of the Kubernetes application will be
-	// Name-PullRequestNumber by default.
+	// Name is the name of the Kubernetes application.
 	Name string
 
 	// Template is the Go template to be used to render the Kubernetes manifests.
