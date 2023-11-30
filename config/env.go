@@ -3,6 +3,11 @@ package config
 import "fmt"
 
 type Environment struct {
+	// BaseName is the base name of the Per-Pull Request Environment.
+	// This is used to generate the name of the Per-Pull Request Environment.
+	// The generated environment name is then used to generate the name of the ArgoCD application.
+	BaseName string `yaml:"name"`
+
 	// ArgoCDApp is the ArgoCD application that deploys the Kubernetes applications.
 	// You either need to specify the ArgoCDApp for each service or the only ArgoCDApp for the environment.
 	// If you specify the ArgoCDApp for the environment, the ArgoCDApp for each service is ignored.
@@ -24,10 +29,6 @@ type Service struct {
 }
 
 type ArgoCDApp struct {
-	// NameBase is the base name of the Kubernetes application.
-	// The actual name of the Kubernetes application will be
-	// NameBase-PullRequestNumber by default.
-	NameBase string `yaml:"nameBase"`
 	// Namespace is the namespace of the ArgoCD application.
 	Namespace string `yaml:"namespace"`
 	// DestinationNamespace is the namespace of the Kubernetes application that is deployed by ArgoCD.
@@ -45,10 +46,6 @@ type ArgoCDApp struct {
 }
 
 func (a *ArgoCDApp) Validate() error {
-	if a.NameBase == "" {
-		return fmt.Errorf("name is required")
-	}
-
 	if a.Namespace == "" {
 		return fmt.Errorf("namespace is required")
 	}

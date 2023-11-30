@@ -34,47 +34,37 @@ import (
 
 func Apply(ctx context.Context, cfg config.Config) error {
 	store := &state.Store{}
-	envNameTemplate := cfg.EnvironmentNameTemplate
-	if envNameTemplate == "" {
-		envNameTemplate = "{{ .Name }}-{{ .PullRequestNumber }}"
-	}
-	a := &k8sdeploy.ArgoCDApp{
-		ArgoCDApp: *cfg.Environment.ArgoCDApp,
-	}
-	if a.NameBase == "" {
-		a.NameBase = "prenv"
-	}
-	if err := a.LoadEnvVars(); err != nil {
+
+	envParams, err := generateEnvParams(cfg)
+	if err != nil {
 		return err
 	}
-	if err := a.Validate(); err != nil {
-		return fmt.Errorf("invalid environment.argocdApp configuration: %w", err)
-	}
-	envNameTmpl := template.Must(template.New("envName").Parse(envNameTemplate))
-	var buf bytes.Buffer
-	if err := envNameTmpl.Execute(&buf, a); err != nil {
+
+	if err := store.AddEnvironmentName(ctx, envParams.Name); err != nil {
 		return err
 	}
-	envName := buf.String()
-	if err := store.AddEnvironmentName(ctx, envName); err != nil {
-		return err
-	}
-	a.Name = envName
 
 	// Add the new SQS queue and reconfigures the SQS forwarder.
 	if err := infra.Reconcile(ctx, cfg); err != nil {
 		return err
 	}
 
-	// Deploy the Kubernetes resources.
-	if err := deployKubernetesResources(ctx, *a); err != nil {
+	as, err := generateManyK8sApps(*envParams, cfg)
+	if err != nil {
 		return err
+	}
+
+	for _, a := range as {
+		// Deploy the Kubernetes resources.
+		if err := deployKubernetesResources(ctx, *a); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func deployKubernetesResources(ctx context.Context, app k8sdeploy.ArgoCDApp) error {
+func deployKubernetesResources(ctx context.Context, app k8sdeploy.AppParams) error {
 	if err := k8sdeploy.Apply(ctx,
 		k8sdeploy.M{
 			Name:         app.Name,
@@ -88,38 +78,48 @@ func deployKubernetesResources(ctx context.Context, app k8sdeploy.ArgoCDApp) err
 	return nil
 }
 
-func Destroy(ctx context.Context, cfg config.Config) error {
-	store := &state.Store{}
+func generateEnvParams(cfg config.Config) (*k8sdeploy.EnvParams, error) {
 	envNameTemplate := cfg.EnvironmentNameTemplate
 	if envNameTemplate == "" {
-		envNameTemplate = "{{ .NameBase }}-{{.PullRequestNumber}}"
+		envNameTemplate = "{{ .BaseName }}-{{.PullRequestNumber}}"
 	}
-	a := &k8sdeploy.ArgoCDApp{
-		ArgoCDApp: *cfg.Environment.ArgoCDApp,
+
+	envParams := k8sdeploy.EnvParams{}
+	if err := envParams.LoadEnvVarsAndEvent(); err != nil {
+		return nil, err
 	}
-	if a.NameBase == "" {
-		a.NameBase = "prenv"
-	}
-	if err := a.LoadEnvVars(); err != nil {
-		return err
-	}
-	if err := a.Validate(); err != nil {
-		return fmt.Errorf("invalid environment.argocdApp configuration: %w", err)
-	}
+
 	envNameTmpl := template.Must(template.New("envName").Parse(envNameTemplate))
 	var buf bytes.Buffer
-	if err := envNameTmpl.Execute(&buf, a); err != nil {
-		return err
+	if err := envNameTmpl.Execute(&buf, envParams); err != nil {
+		return nil, err
 	}
-	envName := buf.String()
-	if err := store.DeleteEnvironmentName(ctx, envName); err != nil {
-		return err
-	}
-	a.Name = envName
+	envParams.Name = buf.String()
 
-	// Delete the Kubernetes resources.
-	if err := destroyKubernetesResources(ctx, *a); err != nil {
+	return &envParams, nil
+}
+
+func Destroy(ctx context.Context, cfg config.Config) error {
+	store := &state.Store{}
+
+	envParams, err := generateEnvParams(cfg)
+	if err != nil {
 		return err
+	}
+
+	if err := store.DeleteEnvironmentName(ctx, envParams.Name); err != nil {
+		return err
+	}
+
+	as, err := generateManyK8sApps(*envParams, cfg)
+	if err != nil {
+		return err
+	}
+
+	for _, a := range as {
+		if err := destroyOneK8sApp(ctx, *a); err != nil {
+			return fmt.Errorf("destroying %q: %w", a.Name, err)
+		}
 	}
 
 	// Delete the SQS queue and reconfigures the SQS forwarder.
@@ -130,7 +130,16 @@ func Destroy(ctx context.Context, cfg config.Config) error {
 	return nil
 }
 
-func destroyKubernetesResources(ctx context.Context, app k8sdeploy.ArgoCDApp) error {
+func destroyOneK8sApp(ctx context.Context, a k8sdeploy.AppParams) error {
+	// Delete the Kubernetes resources.
+	if err := destroyKubernetesResources(ctx, a); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func destroyKubernetesResources(ctx context.Context, app k8sdeploy.AppParams) error {
 	if err := k8sdeploy.Delete(ctx,
 		k8sdeploy.M{
 			Name:         app.Name,
@@ -142,4 +151,74 @@ func destroyKubernetesResources(ctx context.Context, app k8sdeploy.ArgoCDApp) er
 	}
 
 	return nil
+}
+
+func generateManyK8sApps(env k8sdeploy.EnvParams, cfg config.Config) ([]*k8sdeploy.AppParams, error) {
+	var as []*k8sdeploy.AppParams
+
+	if len(cfg.Services) == 0 && cfg.ArgoCDApp == nil {
+		return nil, fmt.Errorf("services or argocdApp is required")
+	} else if len(cfg.Services) > 0 && cfg.ArgoCDApp != nil {
+		return nil, fmt.Errorf("services and argocdApp are mutually exclusive")
+	}
+
+	if cfg.ArgoCDApp != nil {
+		if env.AppNameTemplate == "" {
+			env.AppNameTemplate = "{{ .Environment.Name }}-{{ .Environment.PullRequestNumber }}"
+		}
+
+		a, err := generateOne(env, "", *cfg.ArgoCDApp)
+		if err != nil {
+			return nil, err
+		}
+
+		as = append(as, a)
+
+		return as, nil
+	}
+
+	if env.AppNameTemplate == "" {
+		env.AppNameTemplate = "{{ .Environment.Name }}-{{ .Environment.PullRequestNumber }}-{{ .ShortName }}"
+	}
+
+	for shortName, svc := range cfg.Services {
+		ac := svc.ArgoCDApp
+		if shortName == "" {
+			return nil, fmt.Errorf("services.%s.argocdApp: shortName is required: encountered %q", shortName, shortName)
+		}
+		a, err := generateOne(env, shortName, ac)
+		if err != nil {
+			return nil, err
+		}
+		as = append(as, a)
+	}
+
+	return as, nil
+}
+
+func generateOne(env k8sdeploy.EnvParams, shortName string, ac config.ArgoCDApp) (*k8sdeploy.AppParams, error) {
+	a := &k8sdeploy.AppParams{
+		ShortName:   shortName,
+		ArgoCDApp:   ac,
+		Environment: env,
+	}
+
+	if env.AppNameTemplate == "" {
+		return nil, fmt.Errorf("assertion error: environment.appNameTemplate is required")
+	}
+
+	appNameTmpl := template.Must(template.New("appName").Parse(env.AppNameTemplate))
+	var buf bytes.Buffer
+	if err := appNameTmpl.Execute(&buf, a); err != nil {
+		return nil, err
+	}
+	appName := buf.String()
+
+	if err := a.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid argocdApp: %w", err)
+	}
+
+	a.Name = appName
+
+	return a, nil
 }

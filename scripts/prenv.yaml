@@ -20,13 +20,12 @@ kubernetesResources:
     channel: "playground"
     username: "prenv"
 
-environment:
-  argocdApp:
-    name: myprenv
-    namespace: prenv-apps
-    destinationNamespace: prenv
-    destinationServer: https://kubernetes.default.svc
-    repoURL: git@github.com:mumoshu/prenv.git
-    path: manifests
-    targetRevision: HEAD
-    image: mumoshu/prenv-example-app
+argocdApp:
+  name: myprenv
+  namespace: prenv-apps
+  destinationNamespace: prenv
+  destinationServer: https://kubernetes.default.svc
+  repoURL: git@github.com:mumoshu/prenv.git
+  path: manifests
+  targetRevision: HEAD
+  image: mumoshu/prenv-example-app

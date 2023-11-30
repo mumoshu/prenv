@@ -31,12 +31,43 @@ spec:
     - CreateNamespace=true
 `
 
-type ArgoCDApp struct {
-	config.ArgoCDApp
+// AppParams is the parameters for the Kubernetes application to be deployed per pull request.
+type AppParams struct {
+	// Name is the name of the application.
+	// This is used:
+	// - For generating the name of the ArgoCD application.
+	// - For generating the file name of the Kubernetes manifests.
+	Name string
 
-	// Name is the name of the ArgoCD application.
+	// ShortName is the short name of the Kubernetes application.
+	// It is used to generate Name from EnvParams.AppNameTemplate.
+	ShortName string
+
+	config.ArgoCDApp
+	Environment EnvParams
+}
+
+func (a *AppParams) Validate() error {
+	if err := a.ArgoCDApp.Validate(); err != nil {
+		return err
+	}
+
+	if err := a.Environment.Validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// EnvParams is the parameters for the environment to be deployed per pull request.
+type EnvParams struct {
+	// Name is the name of the environment.
 	// It will be NameBase-PullRequestNumber by default.
 	Name string
+
+	// AppNameTemplate is the Go template used to generate the name of the ArgoCD application.
+	// It is `{{ .Environment.Name }}-{{ .Environment.PullRequestNumber }}` or `{{ .Environment.Name }}-{{ .Environment.PullRequestNumber }}-{{ .ShortName }} by default,
+	AppNameTemplate string
 
 	// The following fields are set by LoadEnvVars.
 
@@ -46,7 +77,10 @@ type ArgoCDApp struct {
 	PullRequestNumber int
 }
 
-func (a *ArgoCDApp) LoadEnvVars() error {
+// LoadEnvVarsAndEvent loads the environment variables and the GitHub Actions event payload.
+// The loaded values are set to the EnvParams and therefore avaiable for Go templates used
+// for generating the Kubernetes manifests.
+func (a *EnvParams) LoadEnvVarsAndEvent() error {
 	prNumber, err := GetPullRequestNumber()
 	if err != nil {
 		return err
@@ -63,11 +97,7 @@ func (a *ArgoCDApp) LoadEnvVars() error {
 	return nil
 }
 
-func (a *ArgoCDApp) Validate() error {
-	if err := a.ArgoCDApp.Validate(); err != nil {
-		return err
-	}
-
+func (a *EnvParams) Validate() error {
 	if a.GitHubSHA == "" {
 		return fmt.Errorf("githubSHA is required. Set GITHUB_SHA env var")
 	}

@@ -63,12 +63,38 @@ envvars:
   outgoingWebhookURL:
     name: "MY_CUSTOM_OUTGOING_WEBHOOK_URL_ENV_VAR_NAME"
 
-nameTemplate: "{{ .NameBase }}-{{ .PullRequestNumber }}"
+# baseName is the basename of the environment deployed per pull-request.
+baseName: "myapp"
+
+# The below is the default Go template used for generating names of per-pull-request environments.
+nameTemplate: "{{ .BaseName }}-{{ .PullRequestNumber }}"
+
+# You need to specify either:
+# - argocdApp (in case it's a monolith) or
+# - services.$SHORT_NAME.argocdApp (in case it's composed of microservices)
+
+services:
+  myweb:
+    argocdApp:
+      # see below
+  myapi:
+    argocdApp:
+      # see below
 
 ## The following argocd section is asummed by default
-## when you specify just `argocd: {}`
-argocd:
-  nameBase: "myapp"
+## when you specify just `argocdApp: {}`
+argocdApp:
+  namespace: prenv-apps
+  destinationNamespace: prenv
+  destinationServer: https://kubernetes.default.svc
+  repoURL: git@github.com:mumoshu/prenv.git
+  path: manifests
+  targetRevision: HEAD
+  image: mumoshu/prenv-example-app
+  # The below is the default appTemplate that is used to render
+  # the ArgoCD Application manifest.
+  # Each Go template variable looks like `{{ .VarName }}` corresponds
+  # to the upper-camel-cased versions of fields like `namespace`, `destinationNamespace`, and so on.
   appTemplate: |
     metadata:
       name: "{{ .Name }}"
