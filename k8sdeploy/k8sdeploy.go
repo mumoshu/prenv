@@ -172,6 +172,9 @@ func generateManifests(name, deployTemplate string, c interface{}) ([]file, erro
 		"b64enc": func(s string) string {
 			return base64.StdEncoding.EncodeToString([]byte(s))
 		},
+		"split": func(sep, s string) []string {
+			return strings.Split(s, sep)
+		},
 	})
 	m, err := m.Parse(deployTemplate)
 	if err != nil {

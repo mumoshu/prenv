@@ -1,7 +1,9 @@
 package k8sdeploy
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/mumoshu/prenv/config"
 )
@@ -75,6 +77,9 @@ type EnvParams struct {
 	GitHubSHA string
 	// PullRequestNumber is the number of the pull request to be deployed.
 	PullRequestNumber int
+
+	// GitHubActionsEventPayload is the payload of the GitHub Actions event.
+	GitHubActionsEventPayload map[string]interface{}
 }
 
 // LoadEnvVarsAndEvent loads the environment variables and the GitHub Actions event payload.
@@ -94,7 +99,39 @@ func (a *EnvParams) LoadEnvVarsAndEvent() error {
 	a.PullRequestNumber = *prNumber
 	a.GitHubSHA = sha
 
+	p, err := GetGitHubActionsEventPayload()
+	if err != nil {
+		return err
+	}
+
+	a.GitHubActionsEventPayload = p
+
 	return nil
+}
+
+func GetGitHubActionsEventPayload() (map[string]interface{}, error) {
+	const (
+		// https://docs.github.com/en/actions/reference/environment-variables#default-environment-variables
+		githubEventPath = "GITHUB_EVENT_PATH"
+	)
+
+	path := os.Getenv(githubEventPath)
+	if path == "" {
+		return nil, fmt.Errorf("%s must not be empty", githubEventPath)
+	}
+
+	f, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", githubEventPath, err)
+	}
+
+	var payload = map[string]interface{}{}
+
+	if err := json.Unmarshal(f, &payload); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal %s: %w", githubEventPath, err)
+	}
+
+	return payload, nil
 }
 
 func (a *EnvParams) Validate() error {
