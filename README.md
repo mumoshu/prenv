@@ -127,19 +127,19 @@ Introducing `prenv`, we want the environments to look like the either of the bel
 Option 1: Reconfigure SQS publisher
 
 ```
-SQS publisher --> prenv static queue -->
-  prenv-sqs-forwarder --> existing queue --> SQS consumer
-                      --> PR #123 queue  --> PR #123 SQS consumer
-                      --> PR #234 queue  --> PR #234 SQS consumer
+SQS publisher --> source queue (new) -->
+  prenv-sqs-forwarder --> destination queue (existing) --> SQS consumer
+                      --> destination queue PR #123    --> PR #123 SQS consumer
+                      --> destination queue PR #234    --> PR #234 SQS consumer
 ```
 
 Option 2: Reconfigure SQS consumer
 
 ```
-SQS publisher --> existing queue -->
-  prenv-sqs-forwarder --> prenv static queue --> SQS consumer
-                      --> PR #123 queue  --> PR #123 SQS consumer
-                      --> PR #234 queue  --> PR #234 SQS consumer
+SQS publisher --> source queue (existing) -->
+  prenv-sqs-forwarder --> destination queue         --> SQS consumer
+                      --> destination queue PR #123 --> PR #123 SQS consumer
+                      --> destination queue PR #234 --> PR #234 SQS consumer
 ```
 
 For Option 1, your `prenv.yaml` would look like:
@@ -147,11 +147,14 @@ For Option 1, your `prenv.yaml` would look like:
 ```
 awsResources:
   # We let prenv create the static queue that SQS publisher sends to
+  # The value `true` here corresponds to `(new)` of the `source queue (new)` in Option 1.
   sourceQueueCreate: true
   sourceQueueURL: prenv-static-queue
   # We reuse the existing queue here
+  # The value `false` corresponds to `(existing)` of the `destination queue (existing)` in Option 1.
   destinationQueueCreate: false
   # However queues for PR envs are created by prenv
+  # This corresponds to `destination queue PR #<PR NUMBER>` in the figure above.
   destinationQueuesCreate: true
   destinationQueueURL: testdestinationqueue
 ```
@@ -161,11 +164,14 @@ For Option 2, it would look like:
 ```
 awsResources:
   # We reuse the existing queue here
+  # The value `true` here corresponds to `(existing)` of the `source queue (existing)` in Option 2.
   sourceQueueCreate: false
   sourceQueueURL: $URL_OR_NAME_OF_EXISTING_QUEUE
   # We let prenv create the static queue that SQS consumer subscribes to
+  # The value `true` corresponds to `(new)` of the `destination queue (new)` in Option 1.
   destinationQueueCreate: true
   # Queues for PR envs are created by prenv anyway
+  # This corresponds to `destination queue PR #<PR NUMBER>` in the figure above.
   destinationQueuesCreate: true
   destinationQueueURL: testdestinationqueue
 ```
