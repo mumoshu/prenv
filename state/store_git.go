@@ -24,65 +24,41 @@ import (
 )
 
 type GitStore struct {
-	auth transport.AuthMethod
-
-	// gitRepoURL is the URL of the git repository that contains the gitops config
-	// It needs to be a URL that can be handled by go-git and git-clone.
-	gitRepoURL string
-
-	// repository is the local git repository that contains the gitops config
-	// It is cloned from gitRepoURL.
-	// It is not nil only after Clone() has succeeded.
-	repository *git.Repository
-
-	// authorUserName is the username to be used when committing changes to the gitops config
-	// It is usually the name of the bot user, with or without an email address,
-	// in the form "username <email>".
-	authorUserName string
-
-	// baseRefName is the name of the branch that contains the gitops config
-	// It is usually "master" or "main".
-	baseRefName plumbing.ReferenceName
-
-	// gitRoot is the root of the local git repository, used to
-	// clone and checkout the remote repository that contains the gitops config
-	// or the kustomize config we are going to modify.
-	// If empty, we will use in-memory filesystem.
-	gitRoot string
-
 	// stateFilePath is the path to the file that contains the state of the gitops config
 	stateFilePath string
 
-	// cloned is true when the git repository has been cloned.
-	cloned bool
+	ds *gitDataStore
 }
 
 var _ Store = &GitStore{}
 
 func newGitStore(commitAuthorUserName, githubToken, repo, baseBranch, stateFilePath, gitRoot string) *GitStore {
-	var s GitStore
+	var ds gitDataStore
 
-	s.auth = &http.BasicAuth{
+	ds.auth = &http.BasicAuth{
 		Username: "prenvbot", // This can be anything except an empty string
 		Password: githubToken,
 	}
-	s.gitRepoURL = repo
-	s.authorUserName = commitAuthorUserName
-	s.gitRoot = gitRoot
+	ds.gitRepoURL = repo
+	ds.authorUserName = commitAuthorUserName
+	ds.gitRoot = gitRoot
 
 	baseRefName := plumbing.Master
 	if baseBranch != "" {
 		baseRefName = plumbing.ReferenceName(baseBranch)
 	}
-	s.baseRefName = baseRefName
+	ds.baseRefName = baseRefName
+
+	var s GitStore
 
 	s.stateFilePath = stateFilePath
+	s.ds = &ds
 
 	return &s
 }
 
 func (s *GitStore) AddEnvironmentName(ctx context.Context, name string) error {
-	return s.modifyState("add-env-"+name, s.stateFilePath, "Delete environment name "+name, func(data []byte) ([]byte, error) {
+	return s.ds.modifyState("add-env-"+name, s.stateFilePath, "Delete environment name "+name, func(data []byte) ([]byte, error) {
 		ds := &yamlDataStore{}
 		s, err := ds.load(context.Background(), data)
 		if err != nil {
@@ -100,7 +76,7 @@ func (s *GitStore) AddEnvironmentName(ctx context.Context, name string) error {
 }
 
 func (s *GitStore) DeleteEnvironmentName(ctx context.Context, name string) error {
-	return s.modifyState("delete-env-"+name, s.stateFilePath, "Delete environment name "+name, func(data []byte) ([]byte, error) {
+	return s.ds.modifyState("delete-env-"+name, s.stateFilePath, "Delete environment name "+name, func(data []byte) ([]byte, error) {
 		ds := &yamlDataStore{}
 		s, err := ds.load(context.Background(), data)
 		if err != nil {
@@ -127,30 +103,69 @@ func (s *GitStore) ListEnvironmentNames(ctx context.Context) ([]string, error) {
 }
 
 func (s *GitStore) getState(ctx context.Context) (*State, error) {
-	w, err := s.createAndCheckoutNewBranch("get-envs")
+	yamlData, err := s.ds.getData("get-envs", s.stateFilePath)
 	if err != nil {
 		return nil, err
-	}
-
-	f, err := w.Filesystem.Open(s.stateFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open file %q: %w", s.stateFilePath, err)
-	}
-
-	yamlData, err := io.ReadAll(f)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read file %q: %w", s.stateFilePath, err)
-	}
-
-	if err := f.Close(); err != nil {
-		return nil, fmt.Errorf("unable to close file %q: %w", s.stateFilePath, err)
 	}
 
 	ds := &yamlDataStore{}
 	return ds.load(ctx, yamlData)
 }
 
-func (s GitStore) modifyState(branch, path, message string, fn func([]byte) ([]byte, error)) error {
+type gitDataStore struct {
+	auth transport.AuthMethod
+
+	// gitRepoURL is the URL of the git repository that contains the gitops config
+	// It needs to be a URL that can be handled by go-git and git-clone.
+	gitRepoURL string
+
+	// repository is the local git repository that contains the gitops config
+	// It is cloned from gitRepoURL.
+	// It is not nil only after Clone() has succeeded.
+	repository *git.Repository
+
+	// authorUserName is the username to be used when committing changes to the gitops config
+	// It is usually the name of the bot user, with or without an email address,
+	// in the form "username <email>".
+	authorUserName string
+
+	// baseRefName is the name of the branch that contains the gitops config
+	// It is usually "master" or "main".
+	baseRefName plumbing.ReferenceName
+
+	// gitRoot is the root of the local git repository, used to
+	// clone and checkout the remote repository that contains the gitops config
+	// or the kustomize config we are going to modify.
+	// If empty, we will use in-memory filesystem.
+	gitRoot string
+	// cloned is true when the git repository has been cloned.
+	cloned bool
+}
+
+func (s *gitDataStore) getData(branch, path string) ([]byte, error) {
+	w, err := s.createAndCheckoutNewBranch(branch)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := w.Filesystem.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open file %q: %w", path, err)
+	}
+
+	yamlData, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read file %q: %w", path, err)
+	}
+
+	if err := f.Close(); err != nil {
+		return nil, fmt.Errorf("unable to close file %q: %w", path, err)
+	}
+
+	return yamlData, nil
+}
+
+func (s *gitDataStore) modifyState(branch, path, message string, fn func([]byte) ([]byte, error)) error {
 	w, err := s.createAndCheckoutNewBranch(branch)
 	if err != nil {
 		return err
@@ -203,7 +218,7 @@ func (s GitStore) modifyState(branch, path, message string, fn func([]byte) ([]b
 	return nil
 }
 
-func (s *GitStore) Clone() error {
+func (s *gitDataStore) Clone() error {
 	var (
 		storage storage.Storer
 		fs      billy.Filesystem
@@ -227,11 +242,11 @@ func (s *GitStore) Clone() error {
 	return err
 }
 
-func (s GitStore) DeleteBranch(branch string) (err error) {
+func (s gitDataStore) DeleteBranch(branch string) (err error) {
 	return s.repository.Storer.RemoveReference(plumbing.ReferenceName(branch))
 }
 
-func (s GitStore) createAndCheckoutNewBranch(branch string) (*git.Worktree, error) {
+func (s gitDataStore) createAndCheckoutNewBranch(branch string) (*git.Worktree, error) {
 	if !s.cloned {
 		if err := s.Clone(); err != nil {
 			return nil, err
@@ -273,7 +288,7 @@ func (s GitStore) createAndCheckoutNewBranch(branch string) (*git.Worktree, erro
 	return w, nil
 }
 
-func (s GitStore) verify(w *git.Worktree) error {
+func (s gitDataStore) verify(w *git.Worktree) error {
 	status, err := w.Status()
 	if err != nil {
 		return fmt.Errorf("unable to run git-status: %w", err)
@@ -290,7 +305,7 @@ func (s GitStore) verify(w *git.Worktree) error {
 	return nil
 }
 
-func (s GitStore) modifyAndAdd(w *git.Worktree, path string, fn func([]byte) ([]byte, error)) error {
+func (s gitDataStore) modifyAndAdd(w *git.Worktree, path string, fn func([]byte) ([]byte, error)) error {
 	if _, err := w.Filesystem.Stat(path); err != nil {
 		return fmt.Errorf("unable to stat file %q: %w", path, err)
 	}
