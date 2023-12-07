@@ -96,6 +96,47 @@ func deployKubernetesResources(ctx context.Context, k8sRes config.KubernetesReso
 	return nil
 }
 
+func Deinit(cfg config.Config) error {
+	ctx := context.Background()
+	store := state.NewStore()
+	envNames, err := store.ListEnvironmentNames(ctx)
+	if err != nil {
+		return err
+	}
+
+	awsResourceOptions := cfg.AWSResources
+	awsResourceOptions.DestinationQueueNames = envNames
+
+	return destroy(awsResourceOptions)
+}
+
+func destroy(awsResourceOptions config.AWSResources) error {
+	p := &builtinAWSProvisioner{}
+	return p.Destroy(context.Background(), awsResourceOptions)
+}
+
+type awsProvisioner interface {
+	Apply(ctx context.Context, awsResourceOptions config.AWSResources) (*AWSResources, error)
+	Destroy(ctx context.Context, awsResourceOptions config.AWSResources) error
+}
+
+type builtinAWSProvisioner struct{}
+
+var _ awsProvisioner = &builtinAWSProvisioner{}
+
+func (p *builtinAWSProvisioner) Apply(ctx context.Context, awsResourceOptions config.AWSResources) (*AWSResources, error) {
+	resources := awsresource.AWSResources{
+		AWSRegion:  "ap-northeast-1",
+		AWSProfile: "default",
+	}
+
+	return p.applyAWSResources(&resources, awsResourceOptions)
+}
+
+func (p *builtinAWSProvisioner) applyAWSResources(resources *awsresource.AWSResources, awsResourceOptions config.AWSResources) (*AWSResources, error) {
+	return deployAWSResources(context.Background(), awsResourceOptions)
+}
+
 func deployAWSResources(ctx context.Context, c config.AWSResources) (*AWSResources, error) {
 	res, err := ensureAWSResourcesCreated(ctx, c)
 	if err != nil {
@@ -151,26 +192,16 @@ func ensureAWSResourcesCreated(ctx context.Context, c config.AWSResources) (*AWS
 	}, nil
 }
 
-func Deinit(cfg config.Config) error {
-	ctx := context.Background()
-	store := &state.Store{}
-	envNames, err := store.ListEnvironmentNames(ctx)
-	if err != nil {
-		return err
-	}
-
-	awsResourceOptions := cfg.AWSResources
-	awsResourceOptions.DestinationQueueNames = envNames
-
-	return destroy(awsResourceOptions)
-}
-
-func destroy(awsResourceOptions config.AWSResources) error {
+func (p *builtinAWSProvisioner) Destroy(ctx context.Context, awsResourceOptions config.AWSResources) error {
 	resources := awsresource.AWSResources{
 		AWSRegion:  "ap-northeast-1",
 		AWSProfile: "default",
 	}
 
+	return p.destroyAWSResources(&resources, awsResourceOptions)
+}
+
+func (p *builtinAWSProvisioner) destroyAWSResources(resources *awsresource.AWSResources, awsResourceOptions config.AWSResources) error {
 	if awsResourceOptions.SourceQueueDelete {
 		if err := resources.EnsureQueueDeleted(awsResourceOptions.SourceQueueURL); err != nil {
 			return err
