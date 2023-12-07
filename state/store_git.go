@@ -256,7 +256,7 @@ func (s gitDataStore) createAndCheckoutNewBranch(branch string) (*git.Worktree, 
 	}
 
 	if err := s.DeleteBranch(branch); err != nil {
-		fmt.Println("Unable to delete branch %q: %v", branch, err)
+		fmt.Printf("Unable to delete branch %q: %v", branch, err)
 	}
 
 	w, err := s.repository.Worktree()
