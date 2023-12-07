@@ -32,6 +32,27 @@ import (
 	"github.com/mumoshu/prenv/state"
 )
 
+// Apply creates and updates the pull-request environment.
+// An apply is idempotent, and can be triggered by either a pull-request event,
+// or a workflow_dispatch event.
+//
+// When it is triggered by a pull-request event, it creates a new pull-request environment
+// based on the pull-request number, the content of the head commit, and the configuration
+// defined in prenv.yaml.
+//
+// When it is triggered by a workflow_dispatch event, it creates a new pull-request environment
+// based on the workflow_dispatch inputs containing the pull-request number and arbitrary variables.
+// The "arbitrary variables" are generated from the metadata of the PR, the content of the head commit,
+// and the templates defined in the configuration.
+//
+// How to create the pull-request environment is defined in the configuration.
+// If the configuration contains gitOps fields, it creates the Kubernetes resources and/or
+// AWS resources defined in the configuration via GitOps.
+// It's up to the gitops repository's CI/CD pipeline to create the Kubernetes resources and/or
+// AWS resources in that case.
+//
+// If the configuration does not contain gitOps field, it creates the Kubernetes resources and/or AWS resources defined in the configuration
+// using the built-in provisioners.
 func Apply(ctx context.Context, cfg config.Config) error {
 	store := state.NewStore()
 
@@ -99,6 +120,28 @@ func generateEnvParams(cfg config.Config) (*k8sdeploy.EnvParams, error) {
 	return &envParams, nil
 }
 
+// Destroy deletes the pull-request environment.
+// A destroy is idempotent, and can be triggered by either a pull-request event,
+// or a workflow_dispatch event.
+//
+// When it is triggered by a pull-request event, it deletes the pull-request environment
+// based on the pull-request number, the content of the head commit, and the configuration
+// defined in prenv.yaml.
+//
+// When it is triggered by a workflow_dispatch event, it deletes the pull-request environment
+// based on the workflow_dispatch inputs containing the pull-request number and arbitrary variables.
+// The "arbitrary variables" are generated from the metadata of the PR, the content of the head commit,
+// and the templates defined in the configuration.
+//
+// How to destroy the pull-request environment is defined in the configuration.
+//
+// If the configuration contains gitOps fields, it deletes the Kubernetes resources and/or
+// AWS resources defined in the configuration via GitOps.
+// It's up to the gitops repository's CI/CD pipeline to delete the Kubernetes resources and/or
+// AWS resources in that case.
+//
+// If the configuration does not contain gitOps field, it deletes the Kubernetes resources and/or AWS resources defined in the configuration
+// using the built-in provisioners.
 func Destroy(ctx context.Context, cfg config.Config) error {
 	store := state.NewStore()
 
