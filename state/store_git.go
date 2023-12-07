@@ -58,7 +58,7 @@ func newGitStore(commitAuthorUserName, githubToken, repo, baseBranch, stateFileP
 }
 
 func (s *GitStore) AddEnvironmentName(ctx context.Context, name string) error {
-	return s.ds.modifyState("add-env-"+name, s.stateFilePath, "Delete environment name "+name, func(data []byte) ([]byte, error) {
+	return s.ds.Modify("add-env-"+name, s.stateFilePath, "Delete environment name "+name, func(data []byte) ([]byte, error) {
 		ds := &yamlDataStore{}
 		s, err := ds.load(context.Background(), data)
 		if err != nil {
@@ -76,7 +76,7 @@ func (s *GitStore) AddEnvironmentName(ctx context.Context, name string) error {
 }
 
 func (s *GitStore) DeleteEnvironmentName(ctx context.Context, name string) error {
-	return s.ds.modifyState("delete-env-"+name, s.stateFilePath, "Delete environment name "+name, func(data []byte) ([]byte, error) {
+	return s.ds.Modify("delete-env-"+name, s.stateFilePath, "Delete environment name "+name, func(data []byte) ([]byte, error) {
 		ds := &yamlDataStore{}
 		s, err := ds.load(context.Background(), data)
 		if err != nil {
@@ -103,7 +103,7 @@ func (s *GitStore) ListEnvironmentNames(ctx context.Context) ([]string, error) {
 }
 
 func (s *GitStore) getState(ctx context.Context) (*State, error) {
-	yamlData, err := s.ds.getData("get-envs", s.stateFilePath)
+	yamlData, err := s.ds.Get("get-envs", s.stateFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ type gitDataStore struct {
 	cloned bool
 }
 
-func (s *gitDataStore) getData(branch, path string) ([]byte, error) {
+func (s *gitDataStore) Get(branch, path string) ([]byte, error) {
 	w, err := s.createAndCheckoutNewBranch(branch)
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func (s *gitDataStore) getData(branch, path string) ([]byte, error) {
 	return yamlData, nil
 }
 
-func (s *gitDataStore) modifyState(branch, path, message string, fn func([]byte) ([]byte, error)) error {
+func (s *gitDataStore) Modify(branch, path, message string, fn func([]byte) ([]byte, error)) error {
 	w, err := s.createAndCheckoutNewBranch(branch)
 	if err != nil {
 		return err
@@ -218,7 +218,7 @@ func (s *gitDataStore) modifyState(branch, path, message string, fn func([]byte)
 	return nil
 }
 
-func (s *gitDataStore) Clone() error {
+func (s *gitDataStore) clone() error {
 	var (
 		storage storage.Storer
 		fs      billy.Filesystem
@@ -242,20 +242,20 @@ func (s *gitDataStore) Clone() error {
 	return err
 }
 
-func (s gitDataStore) DeleteBranch(branch string) (err error) {
+func (s gitDataStore) deleteBranch(branch string) (err error) {
 	return s.repository.Storer.RemoveReference(plumbing.ReferenceName(branch))
 }
 
 func (s gitDataStore) createAndCheckoutNewBranch(branch string) (*git.Worktree, error) {
 	if !s.cloned {
-		if err := s.Clone(); err != nil {
+		if err := s.clone(); err != nil {
 			return nil, err
 		}
 
 		s.cloned = true
 	}
 
-	if err := s.DeleteBranch(branch); err != nil {
+	if err := s.deleteBranch(branch); err != nil {
 		fmt.Printf("Unable to delete branch %q: %v", branch, err)
 	}
 
