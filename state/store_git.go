@@ -280,10 +280,13 @@ func (s GitStore) verify(w *git.Worktree) error {
 	}
 
 	for path, status := range status {
-		if status.Staging != git.Modified {
+		switch status.Staging {
+		case git.Modified | git.Added | git.Deleted:
+		default:
 			return fmt.Errorf("failed to verify git status: all files should be modified. File: %v %s", status, path)
 		}
 	}
+
 	return nil
 }
 
