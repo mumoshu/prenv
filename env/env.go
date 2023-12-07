@@ -33,7 +33,7 @@ import (
 )
 
 func Apply(ctx context.Context, cfg config.Config) error {
-	store := &state.Store{}
+	store := state.NewStore()
 
 	envParams, err := generateEnvParams(cfg)
 	if err != nil {
@@ -100,7 +100,7 @@ func generateEnvParams(cfg config.Config) (*k8sdeploy.EnvParams, error) {
 }
 
 func Destroy(ctx context.Context, cfg config.Config) error {
-	store := &state.Store{}
+	store := state.NewStore()
 
 	envParams, err := generateEnvParams(cfg)
 	if err != nil {

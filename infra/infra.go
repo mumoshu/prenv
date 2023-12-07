@@ -32,7 +32,7 @@ import (
 // and after each pull-request is opened.
 // It is idempotent so you can call it multiple times, without fearing that it will create duplicate resources.
 func Reconcile(ctx context.Context, cfg config.Config) error {
-	store := &state.Store{}
+	store := state.NewStore()
 	envNames, err := store.ListEnvironmentNames(ctx)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {

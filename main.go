@@ -17,6 +17,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	ConfigFileName = "prenv.yaml"
+	StateFileName  = "prenv.state.yaml"
+)
+
 func main() {
 	var rootCmd = &cobra.Command{
 		Use:     "prenv",
@@ -51,7 +56,7 @@ func newSignalContext() context.Context {
 func getConfig() (*config.Config, error) {
 	var cfg config.Config
 
-	f, err := os.Open("prenv.yaml")
+	f, err := os.Open(ConfigFileName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to oppen prenv.yaml: %w", err)
 	}
