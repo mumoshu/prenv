@@ -51,7 +51,7 @@ func (s *YAMLFileStore) ListEnvironmentNames(ctx context.Context) ([]string, err
 
 func (s *YAMLFileStore) getState(ctx context.Context) (*State, error) {
 	yamlData, err := os.ReadFile(s.Path)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 

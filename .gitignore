@@ -2,3 +2,6 @@
 
 /prenv
 /dist
+
+.env
+.vscode

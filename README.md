@@ -25,192 +25,107 @@ The CLI app is supposed to run locally and on CI, where the long-running apps ar
 
 - Create `prenv.yaml`. See [Configuration](#configuration) for the syntax.
 
-- Run [`prenv-init`](#prenv-init) to deploy all the prerequisites onto your Kubernetes cluster.
-
-- SQS-only: [Redeploy existing non-PR environment to work with prenv](#reconfiguring-non-PR-environments)
-
 - For each PR:
   - Run [prenv-apply](#prenv-apply) to deploy everything needed for a PR env.
-  - Run [prenv-test](#prenv-test) to run the test(s) you defined
   - Do manual testing by interacting the PR env
   - Run [prenv-destroy](#prenv-destroy) to destroy the PR env
 
 ## Configuration
 
-`prenv.yaml` in the root of your repository is the configuration file for prenv. It describes how a Per-Pull Request Environment is created.
+`prenv.yaml` in the root of your repository is the configuration file for prenv. It describes how a Per-Pull Request Environment is provisioned.
+
+At the high-level, a configuration is composed of `shared` and/or `dedicated` `components`.
+
+Components can depend on each other. `prenv` follows the dependency graph and deploys components in an order so that the dependencies are satisfied then a component is deployed.
 
 ```yaml
-## The following sqs section is asummed by default
-## when you specify just `sqs: {}`
-sqs:
-  queueNameTemplate: "prenv-{{ .PullRequestNumber }}"
-  ## The following attributes are optional.
-  ## It must set to `true` if you want prenv to create SQS queues.
-  ## Set of `false` when you want to create the queues using e.g. Terraform.
-  #create: false
+shared:
+  components:
+    mymiddlewares:
+      # ...
 
-## We currently assume the outgoing webhook is always deployed
-## to the same namespace as the argocd application.
-## So no additional configuration is required.
-#outgoingWebhook: {}
-
-## envvars controls the names of the environment variables
-## that are passed to the application for the Per-Pull Request
-## Environment.
-envvars:
-  sqsQueueURL:
-    name: "MY_CUSTOM_SQS_QUEUE_URL_ENV_VAR_NAME"
-  outgoingWebhookURL:
-    name: "MY_CUSTOM_OUTGOING_WEBHOOK_URL_ENV_VAR_NAME"
-
-# baseName is the basename of the environment deployed per pull-request.
-baseName: "myapp"
-
-# The below is the default Go template used for generating names of per-pull-request environments.
-nameTemplate: "{{ .BaseName }}-{{ .PullRequestNumber }}"
-
-# You need to specify either:
-# - argocdApp (in case it's a monolith) or
-# - services.$SHORT_NAME.argocdApp (in case it's composed of microservices)
-
-services:
-  myweb:
-    argocdApp:
-      # see below
-  myapi:
-    argocdApp:
-      # see below
-
-## The following argocd section is asummed by default
-## when you specify just `argocdApp: {}`
-argocdApp:
-  namespace: prenv-apps
-  destinationNamespace: prenv
-  destinationServer: https://kubernetes.default.svc
-  repoURL: git@github.com:mumoshu/prenv.git
-  path: manifests
-  targetRevision: HEAD
-  image: mumoshu/prenv-example-app
-  # The below is the default appTemplate that is used to render
-  # the ArgoCD Application manifest.
-  # Each Go template variable looks like `{{ .VarName }}` corresponds
-  # to the upper-camel-cased versions of fields like `namespace`, `destinationNamespace`, and so on.
-  appTemplate: |
-    metadata:
-      name: "{{ .Name }}"
-      namespace: "prenv"
-    spec:
-      source:
-        # .GitHubRepositoryURL corresponds to the $GITHUB_REPOSITORY
-        # environment variable
-        repoURL: "{{ .GitHubRepositoryURL }}"
-        # .SHA corresponds to the $GITHUB_SHA environment variable
-        # available on GitHub Actions.
-        targetRevision: "{{ .SHA }}"
-        path: "deploy/argocd"
-      destination:
-        namespace: "prenv-{{ .PullRequestNumber }}"
-        server: "https://kubernetes.default.svc"
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-      ## The queue URL is passed to the application via the
-      ## environment variable `SQS_QUEUE_URL`.
-      env:
-      # The env name is configurable via the `envvars.sqsQueueURL` field.
-      - name: "SQS_QUEUE_URL"
-        value: "{{ .SQSQueueURL }}"
-      # The env name is configurable via the `envvars.outgoingWebhookURL` field.
-        - name: "OUTGOING_WEBHOOK_URL"
-          value: "{{ .OutgoingWebhookURL }}"
-
-terraform:
-  module: "myinfra"
-  vars:
-    - name: "foo"
-      value: "bar"
-    - name: "baz"
-      valueTemplate: "prenv-{{ .PullRequestNumber }}"
-    ## In case you want to deploy the app using Terraform AND
-    ## the queue is created by prenv-init, you need to pass the
-    ## queue name to the Terraform module.
-    #- name: "queue_name"
-    #  valueTemplate: "prenv-{{ .PullRequestNumber }}"
+dedicated:
+  components:
+    myapi:
+      # ...
+    myweb:
+      needs: ["myapi"]
+      # ...
 ```
 
-## Reconfiguring non-PR environments
+Each component is provisioned via a bespoke `provisioner`.
 
-Reconfigure either the sender or the receiver of the original SQS queue to use the SQS managed by `prenv`.
+We have the following provisioners for your choice today:
 
-Let's say your application (SQS consumer) takes SQS messages as inputs and your existing non-PR environments looked like the below.
+- `render`: renders file(s) from template(s)
 
-```
-SQS publisher --> existing queue ---> SQS consumer
-```
+Every provisioner supports gitops, pull-request-ops and indirections via GitHub Actions repository dispatches, which means, you can leverage your existing manual and automated workflows to power pull-request environments.
 
-To avoid manually replicating SQS messages to trigger SQS consumer across environments for testing, we want to replicate messages sent to `SQS consumer`. That's where `prenv-sqs-forwarder` comes in.
+### render provisioner
 
-Introducing `prenv`, we want the environments to look like the either of the belows.
+`render` provisioner renders file(s) from template(s).
 
-Option 1: Reconfigure SQS publisher
+A `render` provisioner config that deploys your `myapi` component via terraform gitops would look like the below:
 
-```
-SQS publisher --> source queue (new) -->
-  prenv-sqs-forwarder --> destination queue (existing) --> SQS consumer
-                      --> destination queue PR #123    --> PR #123 SQS consumer
-                      --> destination queue PR #234    --> PR #234 SQS consumer
-```
-
-Option 2: Reconfigure SQS consumer
-
-```
-SQS publisher --> source queue (existing) -->
-  prenv-sqs-forwarder --> destination queue         --> SQS consumer
-                      --> destination queue PR #123 --> PR #123 SQS consumer
-                      --> destination queue PR #234 --> PR #234 SQS consumer
-```
-
-For Option 1, your `prenv.yaml` would look like:
-
-```
-awsResources:
-  # We let prenv create the static queue that SQS publisher sends to
-  # The value `true` here corresponds to `(new)` of the `source queue (new)` in Option 1.
-  sourceQueueCreate: true
-  sourceQueueURL: prenv-static-queue
-  # We reuse the existing queue here
-  # The value `false` corresponds to `(existing)` of the `destination queue (existing)` in Option 1.
-  destinationQueueCreate: false
-  # However queues for PR envs are created by prenv
-  # This corresponds to `destination queue PR #<PR NUMBER>` in the figure above.
-  destinationQueuesCreate: true
-  destinationQueueURL: testdestinationqueue
+```yaml
+dedicated:
+  components:
+    myapi:
+      render:
+        git:
+          repo: examplegithuborg/yourrepo
+          branch: main
+          path: path/to/dir/within/yourrepo
+          # Does git-add, git-commit, and git-push after rendering files
+          push: true
+        files:
+        # Updates path/to/dir/within/yourrepo/terraform/test.auto.tfvars.json with the dynamic content
+        - name: terraform/test.auto.tfvars.json
+          contentTemplate: |
+            {"prenv_pull_request_numbers": {{ .PullRequestNumbers | toJson }}}
 ```
 
-For Option 2, it would look like:
+See that `git.branch` points to `main`, which means that `prenv` would git-push to the `main` branch directly.
 
+If you'd like human approvals beforehand and you don't like it directly pushing commits, you can just enable the pull-request support by adding `pullRequest: {}`. By adding it, `prenv` commits to a feature branch and submit a pull request against `main`, instead of pushing commits directly to `main`.
+
+```yaml
+render:
+  git:
+    repo: examplegithuborg/yourrepo
+    branch: main
+    path: path/to/dir/within/yourrepo
+    # Does git-add, git-commit, and git-push after rendering files
+    push: true
+  # ADDED
+  pullRequest: {}
+  files:
+  # Updates path/to/dir/within/yourrepo/terraform/test.auto.tfvars.json with the dynamic content
+  - name: terraform/test.auto.tfvars.json
+    contentTemplate: |
+      {"prenv_pull_request_numbers": {{ .PullRequestNumbers | toJson }}}
 ```
-awsResources:
-  # We reuse the existing queue here
-  # The value `true` here corresponds to `(existing)` of the `source queue (existing)` in Option 2.
-  sourceQueueCreate: false
-  sourceQueueURL: $URL_OR_NAME_OF_EXISTING_QUEUE
-  # We let prenv create the static queue that SQS consumer subscribes to
-  # The value `true` corresponds to `(new)` of the `destination queue (new)` in Option 1.
-  destinationQueueCreate: true
-  # Queues for PR envs are created by prenv anyway
-  # This corresponds to `destination queue PR #<PR NUMBER>` in the figure above.
-  destinationQueuesCreate: true
-  destinationQueueURL: testdestinationqueue
+
+Oftentimes you have an application repository and a gitops config repository, where you want to trigger a pull-request-environment deployment from the app repository. The deployment runs on the gitops config repositrory. `prenv` supports this use-case via `repositoryDispatch`.
+
+If you want to do the git update to `examplegithuborg/yourrepo` "from within" that repo, just specify the same repository under the `git` and `repositoryDispatch` fields:
+
+```yaml
+render:
+  repositoryDispatch:
+    owner: examplegithuborg
+    repo: yourrepo
+  git:
+    repo: examplegithuborg/yourrepo
+    branch: main
+    path: path/to/dir/within/yourrepo
+    # Does git-add, git-commit, and git-push after rendering files
+    push: true
+  files:
+    # ...
 ```
 
 ## Commands
-
-Run locally or on GitHub Actions:
-
-- [prenv-init](#prenv-init) sets up the prerequisites for creating and managing Per-Pull Request Environments.
-- [prenv-deinit](#prenv-deinit) deletes the prerequisites for creating and managing Per-Pull Request Environments.
 
 Run on GitHub Actions Pull Request event:
 
@@ -221,14 +136,6 @@ Run on cluster:
 
 - [prenv-sqs-forwarder](#prenv-sqs-forwarder) forwards messages from an SQS queue to the downstream, Per-Pull Request Environments' SQS queues.
 - [prenv-outgoing-webhook](#prenv-outgoing-webhook) receives outgoing webhooks from the Per-Pull Request Environments and forwards them to the Slack channel of your choice.
-
-### prenv-init
-
-`prenv-init` ensures that the `prenv-sqs-forwarder` and `prenv-outgoing-webhook` are deployed to your Kubernetes cluster.
-
-### prenv-deinit
-
-`prenv-deinit` deletes the `prenv-sqs-forwarder` and `prenv-outgoing-webhook` from your Kubernetes cluster.
 
 ### prenv-apply
 

@@ -3,43 +3,23 @@ package state
 import (
 	"context"
 	"os"
-)
 
-const (
-	EnvVarPrefix = "PRENV_"
-
-	EnvVarConfigMapName        = EnvVarPrefix + "CONFIGMAP_NAME"
-	EnvVarGitRepoURL           = EnvVarPrefix + "GIT_REPO_URL"
-	EnvVarBaseBranch           = EnvVarPrefix + "BASE_BRANCH"
-	EnvVarGitRoot              = EnvVarPrefix + "GIT_ROOT"
-	EnvVarCommitAuthorUserName = EnvVarPrefix + "COMMIT_AUTHOR_USER_NAME"
-
-	EnvVarGitHubToken = "GITHUB_TOKEN"
-
-	// EnvVarStateFilePath is the path to the file that stores the state of the environment.
-	//
-	// This file is usually stored in either a local git repository or a remote git repository.
-	//
-	// When EnvVarGitRepoURL is set, this file is stored in the remote git repository.
-	// When EnvVarGitRepoURL is not set, this file is stored in the local git repository.
-	//
-	// If the file is stored in the local git repository, prenv internally deduce the remote repository
-	// URL from the local git repository URL, and push the local git repository to the remote repository.
-	EnvVarStateFilePath = EnvVarPrefix + "STATE_FILE_PATH"
+	"github.com/mumoshu/prenv/config"
+	"github.com/mumoshu/prenv/envvar"
 )
 
 // NewStore returns a Store implementation based on the environment variables.
 // If EnvVarConfigMapName is set, it returns a ConfigMapStore.
 // If EnvVarGitRepoURL is set, it returns a GitStore.
 // Otherwise, it returns a YAMLFileStore.
-func NewStore() Store {
-	if cmName := os.Getenv(EnvVarConfigMapName); cmName != "" {
+func NewStore(_ config.Config) Store {
+	if cmName := os.Getenv(envvar.ConfigMapName); cmName != "" {
 		return &ConfigMapStore{
 			Name: cmName,
 		}
 	}
 
-	gitRepoURL := os.Getenv(EnvVarGitRepoURL)
+	gitRepoURL := os.Getenv(envvar.GitRepoURL)
 	if gitRepoURL == "" {
 		actionsGitHubRepo := os.Getenv("GITHUB_REPOSITORY")
 		if actionsGitHubRepo != "" {
@@ -47,19 +27,24 @@ func NewStore() Store {
 		}
 	}
 
-	if gitRepoURL != "" {
-		return newGitStore(
-			os.Getenv(EnvVarCommitAuthorUserName),
-			os.Getenv(EnvVarGitHubToken),
-			gitRepoURL,
-			os.Getenv(EnvVarBaseBranch),
-			os.Getenv(EnvVarStateFilePath),
-			os.Getenv(EnvVarGitRoot),
-		)
+	// if gitRepoURL != "" {
+	// 	return newGitStore(
+	// 		os.Getenv(envvar.GitCommitAuthorUserName),
+	// 		os.Getenv(envvar.GitHubToken),
+	// 		gitRepoURL,
+	// 		os.Getenv(envvar.BaseBranch),
+	// 		os.Getenv(envvar.StateFilePath),
+	// 		os.Getenv(envvar.GitRoot),
+	// 	)
+	// }
+
+	path := os.Getenv(envvar.StateFilePath)
+	if path == "" {
+		path = "prenv.state.yaml"
 	}
 
 	return &YAMLFileStore{
-		Path: os.Getenv(EnvVarStateFilePath),
+		Path: path,
 	}
 }
 

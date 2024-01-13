@@ -2,30 +2,55 @@ package config
 
 import "fmt"
 
-type Environment struct {
-	// BaseName is the base name of the Per-Pull Request Environment.
+type Component struct {
+	// NamePrefix is the base name of the Per-Pull Request Environment.
 	// This is used to generate the name of the Per-Pull Request Environment.
 	// The generated environment name is then used to generate the name of the ArgoCD application.
-	BaseName string `yaml:"name"`
+	NamePrefix string `yaml:"namePrefix,omitempty"`
 
-	// ArgoCDApp is the ArgoCD application that deploys the Kubernetes applications.
-	// You either need to specify the ArgoCDApp for each service or the only ArgoCDApp for the environment.
-	// If you specify the ArgoCDApp for the environment, the ArgoCDApp for each service is ignored.
-	// This is basically populated when your service is a monolith.
-	ArgoCDApp *ArgoCDApp `yaml:"argocdApp"`
+	// AWSResources is the configuration for the AWS resources that are used by prenv.
+	// This includes the SQS queues that are used by the sqs-forwarder and by
+	// the pull-request environments.
+	AWSResources *AWSResources `yaml:"awsResources,omitempty"`
 
-	// Services is a map of microservices that are deployed to the Per-Pull Request Environment.
+	// KubernetesResources is the configuration for the Kubernetes resources that are used by prenv.
+	// This includes the Kubernetes resources that are used by the sqs-forwarder and by
+	// outgoing-webhook, but not the pull-request environments.
+	KubernetesResources *KubernetesResources `yaml:"kubernetesResources,omitempty"`
+
+	Render *Render `yaml:"render,omitempty"`
+
+	ArgoCD `yaml:"argocd,omitempty"`
+
+	// Components is a map of microservices that are deployed to the Per-Pull Request Environment.
 	// You either need to specify the ArgoCDApp for each service or the only ArgoCDApp for the environment.
 	// If you specify the ArgoCDApp for each service, the ArgoCDApp for the environment is ignored.
 	// This is basically populated when your service is composed of multiple microservices.
-	Services map[string]Service `yaml:"services"`
+	Components map[string]Component `yaml:"components,omitempty"`
 }
 
-// Service is a microservice that is deployed to the Per-Pull Request Environment.
-type Service struct {
-	// ArgoCDApp is the ArgoCD application that deploys the Kubernetes applications
-	// for this microservice.
-	ArgoCDApp ArgoCDApp `yaml:"argocdApp"`
+type Render struct {
+	Delegate `yaml:",inline"`
+
+	Files []RenderedFile `yaml:"files,omitempty"`
+}
+
+type RenderedFile struct {
+	Name            string `yaml:"name,omitempty"`
+	NameTemplate    string `yaml:"nameTemplate,omitempty"`
+	ContentTemplate string `yaml:"contentTemplate"`
+}
+
+// ArgoCD is a set of configuration and apps for ArgoCD.
+type ArgoCD struct {
+	// GitOps is the configuration for the gitops config that is used to deploy the environment.
+	GitOps *Delegate `yaml:"gitOps"`
+
+	// App is the ArgoCD application that deploys the Kubernetes applications.
+	// You either need to specify the App for each service or the only App for the environment.
+	// If you specify the App for the environment, the App for each service is ignored.
+	// This is basically populated when your service is a monolith.
+	App *ArgoCDApp `yaml:"app"`
 }
 
 type ArgoCDApp struct {

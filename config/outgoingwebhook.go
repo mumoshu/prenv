@@ -23,7 +23,7 @@ const (
 	EnvSlackWebhookURL = "SLACK_WEBHOOK_URL"
 )
 
-func (s *OutgoingWebhookServer) BuildDeployConfig(defaults Deploy) (*Deploy, error) {
+func (s *OutgoingWebhookServer) BuildDeployConfig(defaults KubernetesApp) (*KubernetesApp, error) {
 	if err := s.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid configuration")
 	}

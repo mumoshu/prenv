@@ -20,7 +20,7 @@ type SQSForwarder struct {
 	// The URL of the SQS queue to forward messages from.
 	SourceQueueURL string `yaml:"sourceQueueURL"`
 	// The URLs of the downstream, Per-Pull Request Environments' SQS queues.
-	DestinationQueueURLs []string `yaml:"desinationQueueURLs"`
+	DestinationQueueURLs []string `yaml:"desinationQueueURLs,omitempty"`
 	// The maximum number of messages to receive from the source queue at a time.
 	MaxNumberOfMessages int64 `yaml:"maxNumberOfMessages"`
 	// The duration (in seconds) that the received messages are hidden from subsequent retrieve requests after being retrieved by a ReceiveMessage request.
@@ -39,7 +39,7 @@ type SQSForwarder struct {
 	// This is to prevent the daemon from spamming the source queue with DeleteMessage requests.
 	DeleteMessageFailureSleepSeconds int64 `yaml:"deleteMessageFailureSleepSeconds"`
 	// The message attribute names to receive from the source queue.
-	MessageAttributeNames []string `yaml:"messageAttributeNames"`
+	MessageAttributeNames []string `yaml:"messageAttributeNames,omitempty"`
 	// The AWS region to use.
 	AWSRegion string `yaml:"awsRegion"`
 	// The AWS profile to use.
@@ -93,7 +93,7 @@ func (f *SQSForwarder) Validate() error {
 	return nil
 }
 
-func (f *SQSForwarder) BuildDeployConfig(defaults Deploy) (*Deploy, error) {
+func (f *SQSForwarder) BuildDeployConfig(defaults KubernetesApp) (*KubernetesApp, error) {
 	if err := f.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid configuration")
 	}

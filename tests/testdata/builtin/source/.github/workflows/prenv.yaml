@@ -1,0 +1,25 @@
+on:
+  # Trigger the workflow on pull request
+  pull_request:
+    branches:
+      - main
+    # prenv supports the following github.event.pull_request.action
+    types: [ opened, synchronize, closed, reopened ]
+
+concurrency:
+  group: prenv-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  prenv:
+    steps:
+    - uses: actions/checkout@v3
+    - uses: supplypike/setup-bin@v3
+      with:
+        uri: 'https://github.com/mumoshu/prenv/releases/download/v0.2.0/prenv_0.2.0_linux_amd64.tar.gz'
+        name: 'prenv'
+        version: '0.2.0'
+    - run: 'prenv action'
+      env:
+        # This token needs to have the access to create repository dispatch events on the target repository
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

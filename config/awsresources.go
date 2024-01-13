@@ -1,8 +1,13 @@
 package config
 
+import "strings"
+
 // AWSResources represents the desired state of the AWS resources
 // to be a part of the infrastructure.
 type AWSResources struct {
+	Region    string `yaml:"region"`
+	AccountID string `yaml:"accountID"`
+
 	// GitOps is the gitops config that is used to deploy the AWS resources.
 	//
 	// If GitOps is not specified, the AWS resources are deployed directly using either
@@ -12,7 +17,7 @@ type AWSResources struct {
 	// which means that "this" prenv run (re)generates the tfvars file that contains
 	// inputs deducated from the environment and the configuration, and then commits and pushes.
 	// It's the responsibility of the CD system of the target gitops repository to deploy the AWS resources.
-	GitOps *GitOps `yaml:"gitOps"`
+	GitOps *Delegate `yaml:"gitOps"`
 
 	// If true, the source queue is created.
 	// If false, the SourceQueueURL must be specified, the queue needs to exist, and is used as the source queue.
@@ -50,5 +55,20 @@ type AWSResources struct {
 	// If true, the destination queues are created.
 	// If false, the DestinationQueueURLs must be specified, the queues need to exist, and are used as the destination queues.
 	DestinationQueuesCreate bool     `yaml:"destinationQueuesCreate"`
-	DestinationQueueNames   []string `yaml:"destinationQueueURLs"`
+	DestinationQueueNames   []string `yaml:"destinationQueueURLs,omitempty"`
+}
+
+func (r *AWSResources) GetSourceQueueURL() string {
+	return r.DeriveQueueURL(r.SourceQueueURL)
+}
+
+func (r *AWSResources) GetDestinationQueueURL() string {
+	return r.DeriveQueueURL(r.DestinationQueueURL)
+}
+
+func (r *AWSResources) DeriveQueueURL(name string) string {
+	if strings.HasPrefix(name, "https://sqs.") {
+		return name
+	}
+	return "https://sqs." + r.Region + ".amazonaws.com/" + r.AccountID + "/" + name
 }

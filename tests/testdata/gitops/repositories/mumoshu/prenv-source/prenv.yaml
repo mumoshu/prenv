@@ -1,0 +1,64 @@
+dedicated:
+  components:
+    sourceapp:
+      render:
+        git:
+          repo: mumoshu/prenv-source
+          branch: main
+          path: deploy
+          push: true
+        files:
+        - name: kubernetes/test.configmap.yaml
+          contentTemplate: |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: test
+            data:
+              pr_nums.json: |
+                {{ .PullRequest.Numbers | toJson }}
+        - name: terraform/test.auto.tfvars.json
+          contentTemplate: |
+            {"prenv_pull_request_numbers": {{ .PullRequest.Numbers | toJson }}}
+    targetapp:
+      render:
+        repositoryDispatch:
+          owner: mumoshu
+          repo: prenv-target
+        git:
+          repo: mumoshu/prenv-target
+          branch: main
+          path: apps
+          push: true
+        pullRequest: {}
+        files:
+        - nameTemplate: app.{{ .PullRequest.Number }}.yaml
+          contentTemplate: |
+            kind: Application
+            apiVersion: argoproj.io/v1alpha1
+            metadata:
+              name: app-{{ .PullRequest.Number }}
+            spec:
+              project: default
+              source:
+                repoURL: https://github.com/mumoshu/prenv-target
+                targetRevision: main
+                path: kustomize
+              destination:
+                server: https://kubernetes.default.svc
+                namespace: default
+              kustomize:
+                namePrefix: app-{{ .PullRequest.Number }}-
+                images:
+                - name: myapp
+                  newTag: {{ .PullRequest.HeadSHA }}
+              syncPolicy:
+                automated:
+                  prune: true
+                  selfHeal: true
+                  allowEmpty: true
+                  apply:
+                    force: true
+              syncWave: 1
+              syncOptions:
+              - CreateNamespace=true

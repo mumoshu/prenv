@@ -1,0 +1,40 @@
+awsResources:
+  repositoryDispatch:
+    owner: mumoshu
+    repo: prenv-target
+  gitOps:
+    repo: mumoshu/prenv-target
+    # This is the base branch
+    branch: main
+    path: infra/aws
+  sourceQueueCreate: false
+  destinationQueueCreate: false
+  region: ap-northeast-1
+  accountID: 123456789012
+  sourceQueueURL: prenv-source-queue
+  destinationQueueURL: prenv-destination-queue
+  destinationQueuesCreate: true
+
+kubernetesResources:
+  repositoryDispatch:
+    owner: mumoshu
+    repo: prenv-target
+  gitOps:
+    repo: mumoshu/prenv-target
+    branch: main
+    path: infra/k8s
+
+components:
+  sourceapp:
+    gitOps:
+      repo: mumoshu/prenv-source
+      branch: main
+      path: deploy/apps
+  targetapp:
+    repositoryDispatch:
+      owner: mumoshu
+      repo: prenv-target
+    gitOps:
+      repo: mumoshu/prenv-target
+      branch: main
+      path: apps
